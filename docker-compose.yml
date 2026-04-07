@@ -1,0 +1,34 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: room-rental-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+    container_name: room-rental-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: room-rental-frontend
+    environment:
+      API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
