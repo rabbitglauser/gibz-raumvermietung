@@ -2,17 +2,43 @@
 
 ## Current Status
 
-The repository does not currently contain an automated test suite. Testing is therefore manual and API-based at this stage.
+The repository contains focused backend pytest tests for reservation creation and validation. Manual testing is still used for Docker Compose startup and MongoDB persistence.
 
 The current implemented application surface is small:
 
 - Frontend starter page with backend health display.
 - Backend health endpoints.
-- Reservation creation endpoint.
+- Reservation creation endpoint with core reservation form fields.
 - Reservation listing endpoint.
 - MongoDB persistence through Docker Compose.
 
 Planned features such as room catalogue, staff login, dashboard filters, edit deadlines, reminders, and DAO-level tests are not yet implemented and therefore cannot be tested as working features yet.
+
+## Automated Backend Tests
+
+The backend tests live in `backend/tests/`.
+
+Install development test dependencies:
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Current automated coverage:
+
+- Successful `POST /reservations` creation returns `201`, `id`, `status: pending`, timestamps, and saved confirmation data.
+- Invalid email returns `422`.
+- Non-positive `attendee_count` returns `422`.
+- Invalid `organizer_type` returns `422`.
+- `terms_accepted: false` returns `422`.
+- Invalid time order returns `422`.
 
 ## Manual Test Plan
 
@@ -80,14 +106,15 @@ Create a reservation through the API:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"room_id\":\"aula-1005\",\"contact_name\":\"Test User\",\"contact_email\":\"test@example.com\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"notes\":\"Manual API test\"}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true,\"catering_needed\":true,\"catering_time_slots\":[\"10:00 coffee\"],\"additional_equipment\":[\"projector\"],\"microphone_needed\":true}"
 ```
 
 Expected behavior:
 
 - Response contains an `id`.
+- Response contains `status: pending`.
 - Response contains the submitted reservation fields.
-- Response contains a `created_at` timestamp.
+- Response contains `created_at` and `updated_at` timestamps.
 
 ### List Reservations
 
@@ -110,7 +137,7 @@ Send invalid email data:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"room_id\":\"aula-1005\",\"contact_name\":\"Test User\",\"contact_email\":\"not-an-email\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\"}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"not-an-email\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true}"
 ```
 
 Expected behavior:
@@ -118,18 +145,25 @@ Expected behavior:
 - FastAPI returns a validation error.
 - The status code is `422 Unprocessable Entity`.
 
-Send an empty `room_id`:
+Send an invalid time order:
 
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"room_id\":\"\",\"contact_name\":\"Test User\",\"contact_email\":\"test@example.com\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\"}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"09:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true}"
 ```
 
 Expected behavior:
 
 - FastAPI returns a validation error.
 - The status code is `422 Unprocessable Entity`.
+
+Other validation cases that should return `422`:
+
+- `attendee_count` is `0` or negative.
+- `organizer_type` is not `internal` or `external`.
+- `terms_accepted` is `false`.
+- Required text fields are empty.
 
 ## Persistence Test
 
@@ -164,7 +198,7 @@ docker compose down -v
 
 ## Planned Automated Tests
 
-The next implementation step should add automated tests for the current API before adding larger features.
+The next implementation step should expand automated tests for the rest of the current API before adding larger features.
 
 Recommended first tests:
 
@@ -191,13 +225,25 @@ Current manual tests can use simple reservation payloads such as:
 
 ```json
 {
-  "room_id": "aula-1005",
-  "contact_name": "Test User",
-  "contact_email": "test@example.com",
+  "event_name": "M165 Project Presentation",
   "date": "2026-06-15",
+  "setup_start_time": "08:30",
   "start_time": "09:00",
   "end_time": "12:00",
-  "notes": "Manual API test"
+  "room": "Aula 1.005",
+  "contact_name": "Test User",
+  "email": "test@example.com",
+  "phone": "+41 41 123 45 67",
+  "attendee_count": 42,
+  "billing_name": "GIBZ Test Company",
+  "billing_address": "Industriestrasse 52",
+  "billing_postal_code_city": "6300 Zug",
+  "organizer_type": "external",
+  "terms_accepted": true,
+  "catering_needed": true,
+  "catering_time_slots": ["10:00 coffee"],
+  "additional_equipment": ["projector"],
+  "microphone_needed": true
 }
 ```
 
@@ -205,9 +251,9 @@ When automated tests are added, they should use a separate database name such as
 
 ## Known Test Gaps
 
-- No automated tests exist yet.
+- Automated tests currently focus only on `POST /reservations`.
 - No frontend interaction tests exist yet.
-- Date and time logic is not fully validated yet.
+- Date and time formats plus setup/start/end ordering are validated, but reservation conflict detection is not implemented yet.
 - Reservation conflict detection is not implemented yet.
 - Staff authentication and authorization are not implemented yet.
 - Reminder behavior is not implemented yet.

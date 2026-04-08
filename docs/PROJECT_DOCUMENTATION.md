@@ -8,7 +8,7 @@ Implemented:
 
 - Docker Compose setup for frontend, backend, and MongoDB.
 - FastAPI backend with health check endpoints.
-- Reservation creation via `POST /reservations`.
+- Reservation creation via `POST /reservations` with the core fields from the reservation form.
 - Reservation listing via `GET /reservations`.
 - MongoDB persistence for reservation documents.
 - Frontend health display that verifies the backend connection.
@@ -78,7 +78,7 @@ FastAPI was selected because it provides automatic OpenAPI documentation, strong
 
 ## 3.4 Testing
 
-No automated test suite is currently present in the repository. Testing is therefore currently manual and API-based.
+The repository now includes focused backend pytest tests for reservation creation and validation. Manual API testing is still useful for Docker/MongoDB verification.
 
 Current test scenarios:
 
@@ -88,13 +88,21 @@ Current test scenarios:
 - Open Swagger UI at `http://localhost:8000/docs`.
 - Create a reservation through `POST /reservations` with valid reservation data.
 - Call `GET /reservations` and verify that the created reservation appears in the response.
-- Submit invalid reservation data, for example an invalid email address, and verify that FastAPI/Pydantic returns validation errors.
+- Submit invalid reservation data, for example an invalid email address, invalid time order, rejected terms, invalid organizer type, or non-positive attendee count, and verify that FastAPI/Pydantic returns validation errors.
 - Restart the Docker stack without deleting volumes and verify that MongoDB data is still present.
+
+Automated tests currently cover:
+
+- Successful `POST /reservations` creation.
+- Email validation.
+- Positive attendee count validation.
+- Organizer type validation.
+- Terms acceptance validation.
+- Time-order validation.
 
 Recommended automated tests for the next iteration:
 
-- Unit tests for Pydantic reservation validation.
-- API tests for `POST /reservations`, `GET /reservations`, and `/health`.
+- API tests for `GET /reservations` and `/health`.
 - Integration tests against a separate MongoDB test database.
 - Future tests for conflict detection, edit deadlines, staff authentication, filters, and reminder logic once those features are implemented.
 
@@ -180,7 +188,7 @@ docker exec room-rental-mongodb mongorestore --db room_rental --archive=/tmp/roo
 
 ## 3.6 Conclusion
 
-The project currently provides a working technical foundation for the GIBZ room rental application. The frontend, backend, database, and Docker Compose setup are connected, and basic reservation creation/listing is available through the API.
+The project currently provides a working technical foundation for the GIBZ room rental application. The frontend, backend, database, and Docker Compose setup are connected, and reservation creation/listing is available through the API with the main reservation form fields.
 
 The strongest current parts are the simple deployment model, the clear separation between frontend/backend/database services, and the use of MongoDB as a NoSQL document database. The main missing parts are the user-facing room catalogue, the staff dashboard, business-rule validation such as reservation conflict detection, automatic reminders, and the DAO layer required by the assignment.
 

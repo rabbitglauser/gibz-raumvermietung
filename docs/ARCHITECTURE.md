@@ -56,23 +56,39 @@ Current reservation fields:
 ```json
 {
   "id": "string",
-  "room_id": "string",
+  "event_name": "string",
+  "date": "date",
+  "setup_start_time": "time",
+  "start_time": "time",
+  "end_time": "time",
+  "room": "string",
   "contact_name": "string",
-  "contact_email": "email",
-  "date": "string",
-  "start_time": "string",
-  "end_time": "string",
-  "notes": "string | null",
-  "created_at": "datetime"
+  "email": "email",
+  "phone": "string",
+  "attendee_count": "number",
+  "billing_name": "string",
+  "billing_address": "string",
+  "billing_postal_code_city": "string",
+  "organizer_type": "internal | external",
+  "terms_accepted": "boolean",
+  "status": "pending",
+  "created_at": "datetime",
+  "updated_at": "datetime"
 }
 ```
 
+Optional reservation fields include `department`, `invoice_note`, `catering_needed`, `catering_time_slots`, `seating_type`, `additional_equipment`, `microphone_needed`, `technical_support_regie_hours`, `info_screen_text`, `remarks`, `publication_settings`, and `target_groups`.
+
 Current validation:
 
-- `room_id` must not be empty.
+- Required text fields must not be empty.
 - `contact_name` must not be empty.
-- `contact_email` must be a valid email address.
-- Other date/time fields are currently strings and do not yet enforce full business rules such as valid ranges or overlap checks.
+- `email` must be a valid email address.
+- `attendee_count` must be a positive number.
+- `organizer_type` must be `internal` or `external`.
+- `terms_accepted` must be `true`.
+- Time order must be `setup_start_time <= start_time < end_time`.
+- Reservation conflict detection is not implemented yet.
 
 ## Current Frontend
 
