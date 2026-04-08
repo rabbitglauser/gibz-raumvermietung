@@ -1,10 +1,21 @@
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+
+async def fake_ping_db() -> bool:
+    return True
+
+
+sys.modules.setdefault(
+    "app.db",
+    SimpleNamespace(db=SimpleNamespace(), ping_db=fake_ping_db),
+)
 
 from app.main import app  # noqa: E402
 from app.routers import reservations  # noqa: E402
