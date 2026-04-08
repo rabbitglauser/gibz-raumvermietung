@@ -56,23 +56,62 @@ Current reservation fields:
 ```json
 {
   "id": "string",
-  "room_id": "string",
-  "contact_name": "string",
-  "contact_email": "email",
-  "date": "string",
-  "start_time": "string",
-  "end_time": "string",
-  "notes": "string | null",
-  "created_at": "datetime"
+  "event_name": "string",
+  "date": "date",
+  "setup_start_time": "time",
+  "start_time": "time",
+  "end_time": "time",
+  "room": "seminarraum-5-003-004 | seminarraum-2-112 | aula-1-005",
+  "attendee_count": "number",
+  "organizer_type": "external_customer | public_sector_oda | cantonal_admin_zug | gibz_internal_school_event | gibz_internal_private_event",
+  "contact": {
+    "name": "string",
+    "email": "email",
+    "phone": "string",
+    "department": "string | null"
+  },
+  "billing_address": {
+    "name": "string",
+    "street": "string",
+    "postal_code_city": "string",
+    "invoice_note": "string | null"
+  },
+  "catering": {
+    "needed": "boolean",
+    "before_event": "catering window",
+    "during_event": "catering window",
+    "after_event": "catering window"
+  },
+  "setup": {
+    "seating_type": "seminar | block | theater | u_shape | banquet | exam",
+    "equipment": [{"type": "equipment enum", "quantity": "number"}],
+    "microphone_needed": "boolean",
+    "technical_support_hours": "number | null",
+    "regie_hours": "number | null"
+  },
+  "publication": "object | null",
+  "remarks": "string | null",
+  "terms_accepted": "boolean",
+  "status": "pending | confirmed | rejected | cancelled",
+  "created_at": "datetime",
+  "updated_at": "datetime"
 }
 ```
 
+The request uses nested objects for contact, billing address, catering, setup/equipment, and publication data so the API is easier for the frontend to consume and validate.
+
 Current validation:
 
-- `room_id` must not be empty.
-- `contact_name` must not be empty.
-- `contact_email` must be a valid email address.
-- Other date/time fields are currently strings and do not yet enforce full business rules such as valid ranges or overlap checks.
+- Required text fields must not be empty.
+- `contact.email` must be a valid email address.
+- `attendee_count` must be a positive number.
+- `room` must be one of the canonical room IDs.
+- `organizer_type` must be one of the explicit organizer categories.
+- `status` is stored as an enum value and defaults to `pending`.
+- `terms_accepted` must be `true`.
+- Time order must be `setup_start_time <= start_time < end_time`.
+- Overlapping reservations for the same room/date/time are rejected with `409 Conflict`.
+- Room capacity, seating type, equipment, microphone support, technical support, and regie hours are validated against room-specific rules.
 
 ## Current Frontend
 
