@@ -99,6 +99,10 @@ Automated tests currently cover:
 - Organizer type validation.
 - Terms acceptance validation.
 - Time-order validation.
+- Room ID validation.
+- Reservation overlap conflict detection.
+- Typed `GET /reservations` response.
+- Room-specific capacity/equipment validation.
 
 Recommended automated tests for the next iteration:
 

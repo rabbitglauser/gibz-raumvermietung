@@ -141,7 +141,7 @@ Create a reservation:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"aula-1-005\",\"attendee_count\":120,\"organizer_type\":\"gibz_internal_school_event\",\"contact\":{\"name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\"},\"billing_address\":{\"name\":\"GIBZ Test Company\",\"street\":\"Industriestrasse 52\",\"postal_code_city\":\"6300 Zug\"},\"setup\":{\"seating_type\":\"theater\",\"equipment\":[{\"type\":\"projector\",\"quantity\":1}],\"microphone_needed\":true,\"technical_support_hours\":1.5,\"regie_hours\":1.0},\"terms_accepted\":true}"
 ```
 
 List reservations:

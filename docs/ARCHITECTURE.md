@@ -61,34 +61,57 @@ Current reservation fields:
   "setup_start_time": "time",
   "start_time": "time",
   "end_time": "time",
-  "room": "string",
-  "contact_name": "string",
-  "email": "email",
-  "phone": "string",
+  "room": "seminarraum-5-003-004 | seminarraum-2-112 | aula-1-005",
   "attendee_count": "number",
-  "billing_name": "string",
-  "billing_address": "string",
-  "billing_postal_code_city": "string",
-  "organizer_type": "internal | external",
+  "organizer_type": "external_customer | public_sector_oda | cantonal_admin_zug | gibz_internal_school_event | gibz_internal_private_event",
+  "contact": {
+    "name": "string",
+    "email": "email",
+    "phone": "string",
+    "department": "string | null"
+  },
+  "billing_address": {
+    "name": "string",
+    "street": "string",
+    "postal_code_city": "string",
+    "invoice_note": "string | null"
+  },
+  "catering": {
+    "needed": "boolean",
+    "before_event": "catering window",
+    "during_event": "catering window",
+    "after_event": "catering window"
+  },
+  "setup": {
+    "seating_type": "seminar | block | theater | u_shape | banquet | exam",
+    "equipment": [{"type": "equipment enum", "quantity": "number"}],
+    "microphone_needed": "boolean",
+    "technical_support_hours": "number | null",
+    "regie_hours": "number | null"
+  },
+  "publication": "object | null",
+  "remarks": "string | null",
   "terms_accepted": "boolean",
-  "status": "pending",
+  "status": "pending | confirmed | rejected | cancelled",
   "created_at": "datetime",
   "updated_at": "datetime"
 }
 ```
 
-Optional reservation fields include `department`, `invoice_note`, `catering_needed`, `catering_time_slots`, `seating_type`, `additional_equipment`, `microphone_needed`, `technical_support_regie_hours`, `info_screen_text`, `remarks`, `publication_settings`, and `target_groups`.
+The request uses nested objects for contact, billing address, catering, setup/equipment, and publication data so the API is easier for the frontend to consume and validate.
 
 Current validation:
 
 - Required text fields must not be empty.
-- `contact_name` must not be empty.
-- `email` must be a valid email address.
+- `contact.email` must be a valid email address.
 - `attendee_count` must be a positive number.
-- `organizer_type` must be `internal` or `external`.
+- `room` must be one of the canonical room IDs.
+- `organizer_type` must be one of the explicit organizer categories.
+- `status` is stored as an enum value and defaults to `pending`.
 - `terms_accepted` must be `true`.
 - Time order must be `setup_start_time <= start_time < end_time`.
-- Reservation conflict detection is not implemented yet.
+- Overlapping reservations for the same room/date/time are rejected with `409 Conflict`.
+- Room capacity, seating type, equipment, microphone support, technical support, and regie hours are validated against room-specific rules.
 
 ## Current Frontend
 

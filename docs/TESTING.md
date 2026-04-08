@@ -39,6 +39,10 @@ Current automated coverage:
 - Invalid `organizer_type` returns `422`.
 - `terms_accepted: false` returns `422`.
 - Invalid time order returns `422`.
+- Invalid room IDs return `422`.
+- Overlapping reservations for the same room/date/time return `409`.
+- `GET /reservations` returns typed `items`.
+- Room-specific capacity/equipment rules return `422`.
 
 ## Manual Test Plan
 
@@ -106,7 +110,7 @@ Create a reservation through the API:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true,\"catering_needed\":true,\"catering_time_slots\":[\"10:00 coffee\"],\"additional_equipment\":[\"projector\"],\"microphone_needed\":true}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"aula-1-005\",\"attendee_count\":120,\"organizer_type\":\"gibz_internal_school_event\",\"contact\":{\"name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"department\":\"Informatik\"},\"billing_address\":{\"name\":\"GIBZ Test Company\",\"street\":\"Industriestrasse 52\",\"postal_code_city\":\"6300 Zug\",\"invoice_note\":\"Use project cost center\"},\"catering\":{\"needed\":true,\"before_event\":{\"enabled\":true,\"from_time\":\"08:30\",\"to_time\":\"09:00\"}},\"setup\":{\"seating_type\":\"theater\",\"equipment\":[{\"type\":\"projector\",\"quantity\":1}],\"microphone_needed\":true,\"technical_support_hours\":1.5,\"regie_hours\":1.0},\"publication\":{\"info_screen_text\":\"M165 Project Presentation\",\"publish_on_info_screen\":true,\"publish_target_groups\":[\"students\",\"teachers\"]},\"remarks\":\"Manual API test\",\"terms_accepted\":true}"
 ```
 
 Expected behavior:
@@ -137,7 +141,7 @@ Send invalid email data:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"not-an-email\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"aula-1-005\",\"attendee_count\":120,\"organizer_type\":\"gibz_internal_school_event\",\"contact\":{\"name\":\"Test User\",\"email\":\"not-an-email\",\"phone\":\"+41 41 123 45 67\"},\"billing_address\":{\"name\":\"GIBZ Test Company\",\"street\":\"Industriestrasse 52\",\"postal_code_city\":\"6300 Zug\"},\"setup\":{\"seating_type\":\"theater\",\"equipment\":[{\"type\":\"projector\",\"quantity\":1}],\"microphone_needed\":true,\"technical_support_hours\":1.5,\"regie_hours\":1.0},\"terms_accepted\":true}"
 ```
 
 Expected behavior:
@@ -150,7 +154,7 @@ Send an invalid time order:
 ```bash
 curl -X POST http://localhost:8000/reservations ^
   -H "Content-Type: application/json" ^
-  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"09:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"Aula 1.005\",\"contact_name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\",\"attendee_count\":42,\"billing_name\":\"GIBZ Test Company\",\"billing_address\":\"Industriestrasse 52\",\"billing_postal_code_city\":\"6300 Zug\",\"organizer_type\":\"external\",\"terms_accepted\":true}"
+  -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"09:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"aula-1-005\",\"attendee_count\":120,\"organizer_type\":\"gibz_internal_school_event\",\"contact\":{\"name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\"},\"billing_address\":{\"name\":\"GIBZ Test Company\",\"street\":\"Industriestrasse 52\",\"postal_code_city\":\"6300 Zug\"},\"setup\":{\"seating_type\":\"theater\",\"equipment\":[{\"type\":\"projector\",\"quantity\":1}],\"microphone_needed\":true,\"technical_support_hours\":1.5,\"regie_hours\":1.0},\"terms_accepted\":true}"
 ```
 
 Expected behavior:
@@ -161,7 +165,8 @@ Expected behavior:
 Other validation cases that should return `422`:
 
 - `attendee_count` is `0` or negative.
-- `organizer_type` is not `internal` or `external`.
+- `room` is not one of `seminarraum-5-003-004`, `seminarraum-2-112`, or `aula-1-005`.
+- `organizer_type` is not one of the explicit organizer category values.
 - `terms_accepted` is `false`.
 - Required text fields are empty.
 
@@ -205,7 +210,9 @@ Recommended first tests:
 - `GET /health` returns `200` and `status: ok`.
 - `POST /reservations` accepts valid reservation data.
 - `POST /reservations` rejects invalid email data.
-- `POST /reservations` rejects empty `room_id`.
+- `POST /reservations` rejects empty/invalid `room`.
+- `POST /reservations` rejects overlap conflicts.
+- `POST /reservations` rejects unsupported room capacity/equipment combinations.
 - `GET /reservations` returns created reservations.
 
 Recommended future tests after feature implementation:
@@ -230,20 +237,27 @@ Current manual tests can use simple reservation payloads such as:
   "setup_start_time": "08:30",
   "start_time": "09:00",
   "end_time": "12:00",
-  "room": "Aula 1.005",
-  "contact_name": "Test User",
-  "email": "test@example.com",
-  "phone": "+41 41 123 45 67",
+  "room": "aula-1-005",
   "attendee_count": 42,
-  "billing_name": "GIBZ Test Company",
-  "billing_address": "Industriestrasse 52",
-  "billing_postal_code_city": "6300 Zug",
-  "organizer_type": "external",
-  "terms_accepted": true,
-  "catering_needed": true,
-  "catering_time_slots": ["10:00 coffee"],
-  "additional_equipment": ["projector"],
-  "microphone_needed": true
+  "organizer_type": "gibz_internal_school_event",
+  "contact": {
+    "name": "Test User",
+    "email": "test@example.com",
+    "phone": "+41 41 123 45 67"
+  },
+  "billing_address": {
+    "name": "GIBZ Test Company",
+    "street": "Industriestrasse 52",
+    "postal_code_city": "6300 Zug"
+  },
+  "setup": {
+    "seating_type": "theater",
+    "equipment": [{"type": "projector", "quantity": 1}],
+    "microphone_needed": true,
+    "technical_support_hours": 1.5,
+    "regie_hours": 1.0
+  },
+  "terms_accepted": true
 }
 ```
 
@@ -251,7 +265,7 @@ When automated tests are added, they should use a separate database name such as
 
 ## Known Test Gaps
 
-- Automated tests currently focus only on `POST /reservations`.
+- Automated tests currently focus on `POST /reservations` and `GET /reservations`.
 - No frontend interaction tests exist yet.
 - Date and time formats plus setup/start/end ordering are validated, but reservation conflict detection is not implemented yet.
 - Reservation conflict detection is not implemented yet.
