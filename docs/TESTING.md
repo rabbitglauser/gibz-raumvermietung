@@ -1,250 +1,214 @@
 # Testing
 
-## Testing Goals
+## Current Status
 
-- Verify that core workflows (reservation creation, editing, staff management) function correctly
-- Catch regressions when adding new features
-- Validate business rules (conflict detection, edit deadlines, required fields)
-- Ensure the API returns correct responses and meaningful error messages
-- Confirm the application runs end-to-end via Docker Compose
+The repository does not currently contain an automated test suite. Testing is therefore manual and API-based at this stage.
 
-## Testing Strategy
+The current implemented application surface is small:
 
-The project uses a practical mix of automated and manual tests, weighted toward the areas with the highest risk: API correctness, business logic, and reservation conflicts.
+- Frontend starter page with backend health display.
+- Backend health endpoints.
+- Reservation creation endpoint.
+- Reservation listing endpoint.
+- MongoDB persistence through Docker Compose.
 
-| Level | Scope | Tools | Priority |
-|---|---|---|---|
-| Unit tests | Individual functions, DAO methods, validators | pytest | High |
-| Integration tests | API endpoints with a real MongoDB instance | pytest + httpx (TestClient) | High |
-| API tests | Full request/response validation | pytest + httpx | High |
-| Manual UI tests | Frontend workflows, visual verification | Browser | Medium |
+Planned features such as room catalogue, staff login, dashboard filters, edit deadlines, reminders, and DAO-level tests are not yet implemented and therefore cannot be tested as working features yet.
 
-## Test Levels
+## Manual Test Plan
 
-### Unit Tests
+### Docker Compose Startup
 
-Unit tests cover isolated logic that does not require a database or HTTP server.
+1. Start the stack:
 
-**What to test:**
-- Pydantic model validation (valid and invalid inputs)
-- Business logic functions (deadline calculation, conflict detection)
-- Utility functions (token generation, date formatting)
-- DAO methods (with a test MongoDB instance)
+   ```bash
+   docker compose up --build
+   ```
 
-**Framework:** pytest with async support (`pytest-asyncio`).
+2. Verify that all services start:
 
-**Location:** `backend/tests/unit/`
+   ```bash
+   docker compose ps
+   ```
 
-**Example:**
+3. Expected services:
 
-```python
-def test_reservation_create_rejects_missing_email():
-    with pytest.raises(ValidationError):
-        ReservationCreate(
-            room_id="room-1",
-            contact_name="Test User",
-            contact_email="not-an-email",
-            date="2026-05-01",
-            start_time="09:00",
-            end_time="12:00",
-        )
-```
+   - `room-rental-mongodb`
+   - `room-rental-backend`
+   - `room-rental-frontend`
 
-### Integration Tests
+### Frontend Health Display
 
-Integration tests run against a real MongoDB instance (either local or in Docker) to verify that the API endpoints work correctly with the database.
+1. Open `http://localhost:3000`.
+2. Verify that the page title `Room Rental` is visible.
+3. Verify that the backend health JSON is displayed.
+4. Expected response content includes:
 
-**What to test:**
-- Creating a reservation and verifying it appears in the database
-- Listing reservations with and without filters
-- Updating a reservation via edit token
-- Deleting a reservation as staff
-- Conflict detection when creating overlapping reservations
+   ```json
+   {
+     "status": "ok",
+     "service": "room-rental-api"
+   }
+   ```
 
-**Framework:** pytest with FastAPI's `TestClient` (or `httpx.AsyncClient`).
+### Backend Health Endpoint
 
-**Location:** `backend/tests/integration/`
-
-**Database setup:** Use a separate test database (`room_rental_test`) that is cleared before each test run. This avoids interfering with development data.
-
-### API Tests
-
-API tests validate the HTTP interface: correct status codes, response shapes, error messages, and headers.
-
-**What to test:**
-- `POST /reservations` returns 201 with valid data and 422 with invalid data
-- `GET /reservations` returns a list sorted by creation date
-- `GET /reservations/{token}` returns 404 for unknown tokens
-- `PUT /reservations/{token}` rejects edits after the deadline (403)
-- `POST /auth/login` returns a JWT cookie on success and 401 on failure
-- Health endpoint returns 200
-
-**Location:** `backend/tests/api/`
-
-### Manual UI Tests
-
-Manual tests cover frontend workflows that are difficult to automate without a browser testing framework. These are documented as checklists to ensure consistent coverage during testing sessions.
-
-**When to run:** Before each demo, after major frontend changes, and before submission.
-
-## Critical Test Scenarios
-
-### Reservation Conflict Tests
-
-- [ ] Creating two reservations for the same room at the same time is rejected
-- [ ] Creating a reservation that partially overlaps with an existing one is rejected
-- [ ] Creating a reservation for the same room at a different time succeeds
-- [ ] Creating a reservation for a different room at the same time succeeds
-- [ ] Creating a reservation immediately after an existing one ends succeeds (adjacent, not overlapping)
-
-### Validation Tests
-
-- [ ] Reservation with empty `contact_name` is rejected (422)
-- [ ] Reservation with invalid email format is rejected (422)
-- [ ] Reservation with `end_time` before `start_time` is rejected
-- [ ] Reservation with missing required fields returns clear error messages
-- [ ] Room ID that does not exist is rejected
-
-### Edit Deadline Tests
-
-- [ ] Customer can edit a reservation before the deadline
-- [ ] Customer cannot edit a reservation after the deadline (403 with clear message)
-- [ ] Staff can edit a reservation regardless of the deadline
-- [ ] The edit deadline is calculated correctly based on the configured number of days
-
-### Reminder Tests
-
-- [ ] Reservations with missing catering/setup info within the reminder window are identified
-- [ ] A reminder is sent for eligible reservations
-- [ ] A reservation that already received a reminder does not get a second one
-- [ ] Reservations with complete information are not flagged for reminders
-- [ ] Reservations in the past are not flagged for reminders
-
-### Role and Authorization Tests
-
-- [ ] Unauthenticated requests to staff endpoints return 401
-- [ ] Staff login with correct credentials returns a JWT
-- [ ] Staff login with incorrect credentials returns 401
-- [ ] Expired JWT tokens are rejected
-- [ ] Edit token grants access only to the associated reservation, not others
-- [ ] Invalid edit tokens return 404
-
-## Test Data Strategy
-
-**Development data:**
-- A seed script (`backend/scripts/seed.py`, planned) populates the database with sample rooms, reservations, and staff accounts for development and demos
-- Sample data should cover various scenarios: upcoming events, past events, reservations with and without catering, reservations near their edit deadline
-
-**Test data:**
-- Each test creates its own data and cleans up afterward (or uses a fresh test database)
-- Avoid relying on shared test fixtures that create hidden dependencies between tests
-- Use factory functions to generate test reservation documents with sensible defaults
-
-**Staff test accounts (for manual testing):**
-
-| Username | Role | Password |
-|---|---|---|
-| `admin` | admin | `admin123` |
-| `sekretariat` | secretariat | `test123` |
-| `hausdienst` | hausdienst | `test123` |
-| `treff` | restaurant_treff | `test123` |
-
-These are for development and testing only — production passwords must be changed.
-
-## Manual Test Checklist
-
-### Room Catalogue
-
-- [ ] Landing page loads and shows a list of rooms
-- [ ] Clicking a room shows its detail page with capacity, setup variants, and description
-- [ ] Room detail page shows a reservation form
-
-### Reservation Creation
-
-- [ ] Filling out the form with valid data creates a reservation
-- [ ] The user sees a confirmation with their edit link
-- [ ] Submitting with missing required fields shows validation errors
-- [ ] Submitting with an invalid email shows a validation error
-- [ ] Attempting to book an already-occupied time slot shows a conflict error
-
-### Reservation Editing (Customer)
-
-- [ ] Opening the edit link shows the reservation details
-- [ ] Customer can update catering, setup variant, and materials
-- [ ] Saving changes persists them (reload the page to verify)
-- [ ] Attempting to edit after the deadline shows a clear message
-- [ ] Using an invalid token shows a "not found" page
-
-### Staff Dashboard
-
-- [ ] Staff login page loads
-- [ ] Logging in with valid credentials redirects to the dashboard
-- [ ] Logging in with invalid credentials shows an error
-- [ ] Dashboard shows all reservations
-- [ ] Date range filter works correctly
-- [ ] Catering filter shows only reservations with catering
-- [ ] Upcoming filter shows only future events
-- [ ] Past filter shows only past events
-- [ ] Clicking a reservation shows its details
-- [ ] Staff can edit any reservation
-- [ ] Staff can delete a reservation (with confirmation)
-- [ ] Logging out returns to the login page
-
-### Docker Compose
-
-- [ ] `docker compose up --build` starts all three services without errors
-- [ ] Frontend is accessible at http://localhost:3000
-- [ ] Backend health check responds at http://localhost:8000/health
-- [ ] Swagger docs load at http://localhost:8000/docs
-- [ ] Creating a reservation through the frontend stores it in MongoDB
-- [ ] Stopping and restarting Docker Compose preserves existing data
-- [ ] `docker compose down -v` clears all data
-
-## Testing with Docker Compose
-
-To run the full stack for manual or integration testing:
+Call:
 
 ```bash
-# Start all services
-docker compose up --build
-
-# In another terminal, run backend tests against the Dockerized MongoDB
-cd backend
-source .venv/bin/activate
-MONGODB_URL=mongodb://localhost:27017 MONGODB_DB=room_rental_test pytest
-
-# Or run tests inside the backend container
-docker exec room-rental-backend pytest
+curl http://localhost:8000/health
 ```
 
-For isolated test runs, start only MongoDB:
+Expected result:
+
+```json
+{
+  "status": "ok",
+  "service": "room-rental-api"
+}
+```
+
+Also verify that the OpenAPI documentation loads at:
+
+```text
+http://localhost:8000/docs
+```
+
+### Create Reservation
+
+Create a reservation through the API:
 
 ```bash
-docker compose up mongodb -d
-cd backend
-MONGODB_URL=mongodb://localhost:27017 MONGODB_DB=room_rental_test pytest
+curl -X POST http://localhost:8000/reservations ^
+  -H "Content-Type: application/json" ^
+  -d "{\"room_id\":\"aula-1005\",\"contact_name\":\"Test User\",\"contact_email\":\"test@example.com\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"notes\":\"Manual API test\"}"
 ```
 
-## Bug Tracking
+Expected behavior:
 
-Bugs and issues are tracked in the project's GitHub Issues. Each bug report should include:
+- Response contains an `id`.
+- Response contains the submitted reservation fields.
+- Response contains a `created_at` timestamp.
 
-- Steps to reproduce
-- Expected behavior
-- Actual behavior
-- Environment (Docker vs. local, browser, OS)
-- Severity (critical, major, minor)
+### List Reservations
 
-## Exit Criteria
+Call:
 
-The application is considered ready for submission when:
+```bash
+curl http://localhost:8000/reservations
+```
 
-1. All MVP features from [SCOPE.md](SCOPE.md) are implemented and functional
-2. All critical test scenarios pass (conflict detection, edit deadlines, authorization)
-3. The manual test checklist has been completed with no critical or major issues remaining
-4. The application starts and runs correctly via `docker compose up`
-5. API endpoints return correct status codes and response formats
-6. Staff authentication works (login, protected routes, logout)
-7. Customer edit access works (token-based access, deadline enforcement)
-8. MongoDB backup and restore has been tested at least once
-9. Documentation is complete and aligned with the implementation
+Expected behavior:
+
+- Response is a JSON array.
+- The reservation created in the previous test appears in the list.
+- Newer reservations appear first because the backend sorts by `created_at` descending.
+
+### Validation
+
+Send invalid email data:
+
+```bash
+curl -X POST http://localhost:8000/reservations ^
+  -H "Content-Type: application/json" ^
+  -d "{\"room_id\":\"aula-1005\",\"contact_name\":\"Test User\",\"contact_email\":\"not-an-email\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\"}"
+```
+
+Expected behavior:
+
+- FastAPI returns a validation error.
+- The status code is `422 Unprocessable Entity`.
+
+Send an empty `room_id`:
+
+```bash
+curl -X POST http://localhost:8000/reservations ^
+  -H "Content-Type: application/json" ^
+  -d "{\"room_id\":\"\",\"contact_name\":\"Test User\",\"contact_email\":\"test@example.com\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\"}"
+```
+
+Expected behavior:
+
+- FastAPI returns a validation error.
+- The status code is `422 Unprocessable Entity`.
+
+## Persistence Test
+
+1. Create at least one reservation.
+2. Stop the stack without deleting volumes:
+
+   ```bash
+   docker compose down
+   ```
+
+3. Start the stack again:
+
+   ```bash
+   docker compose up --build
+   ```
+
+4. Call:
+
+   ```bash
+   curl http://localhost:8000/reservations
+   ```
+
+Expected behavior:
+
+- The previously created reservation still exists because MongoDB uses the named Docker volume `mongodb_data`.
+
+To intentionally delete all database data:
+
+```bash
+docker compose down -v
+```
+
+## Planned Automated Tests
+
+The next implementation step should add automated tests for the current API before adding larger features.
+
+Recommended first tests:
+
+- `GET /health` returns `200` and `status: ok`.
+- `POST /reservations` accepts valid reservation data.
+- `POST /reservations` rejects invalid email data.
+- `POST /reservations` rejects empty `room_id`.
+- `GET /reservations` returns created reservations.
+
+Recommended future tests after feature implementation:
+
+- Reservation conflict detection rejects overlapping bookings for the same room.
+- Adjacent bookings for the same room are allowed.
+- Customer edit token grants access only to one reservation.
+- Edit deadline blocks customer updates after the configured deadline.
+- Staff login protects staff-only endpoints.
+- Staff filters return correct reservations for date ranges, catering, upcoming events, and past events.
+- Reminder logic identifies incomplete reservations within the configured reminder window.
+- DAO methods can be tested independently from route handlers.
+
+## Test Data
+
+Current manual tests can use simple reservation payloads such as:
+
+```json
+{
+  "room_id": "aula-1005",
+  "contact_name": "Test User",
+  "contact_email": "test@example.com",
+  "date": "2026-06-15",
+  "start_time": "09:00",
+  "end_time": "12:00",
+  "notes": "Manual API test"
+}
+```
+
+When automated tests are added, they should use a separate database name such as `room_rental_test` so development data is not modified.
+
+## Known Test Gaps
+
+- No automated tests exist yet.
+- No frontend interaction tests exist yet.
+- Date and time logic is not fully validated yet.
+- Reservation conflict detection is not implemented yet.
+- Staff authentication and authorization are not implemented yet.
+- Reminder behavior is not implemented yet.
+- DAO tests are not possible yet because the DAO layer is not implemented.

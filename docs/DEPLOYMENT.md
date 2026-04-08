@@ -2,205 +2,214 @@
 
 ## Prerequisites
 
-To run the application, you need:
+To run the current application with Docker:
 
-- **Docker** (v24+) and **Docker Compose** (v2+)
-- **Git** to clone the repository
+- Docker v24 or newer.
+- Docker Compose v2 or newer.
+- Git.
 
 For local development without Docker:
 
-- **Python 3.12+** with pip
-- **Node.js 20+** with npm
-- **MongoDB 8** running locally or accessible via connection string
+- Python 3.12 or newer.
+- Node.js 20 or newer.
+- MongoDB 8 or another reachable MongoDB instance.
 
-## Environment Variables
+## Docker Compose Setup
 
-### Backend (`backend/.env`)
+The repository root contains `docker-compose.yml` with three services:
 
-| Variable | Default | Description |
-|---|---|---|
-| `APP_NAME` | `room-rental-api` | Application identifier |
-| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
-| `MONGODB_DB` | `room_rental` | Database name |
-| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed origins |
-
-When running via Docker Compose, `MONGODB_URL` should point to the `mongodb` service name: `mongodb://mongodb:27017`.
-
-### Frontend
-
-| Variable | Default | Description |
-|---|---|---|
-| `API_BASE_URL` | — | Backend URL for server-side requests (set in Docker Compose) |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Backend URL for client-side requests |
-
-In Docker Compose, `API_BASE_URL` is set to `http://backend:8000` for internal container-to-container communication, while `NEXT_PUBLIC_API_BASE_URL` stays as `http://localhost:8000` for browser requests.
-
-## Docker Compose Services
-
-The `docker-compose.yml` defines three services:
-
-| Service | Image | Port | Volume |
+| Service | Container name | Port | Purpose |
 |---|---|---|---|
-| `mongodb` | `mongo:8` | 27017 | `mongodb_data:/data/db` |
-| `backend` | Built from `./backend/Dockerfile` | 8000 | — |
-| `frontend` | Built from `./frontend/Dockerfile` | 3000 | — |
+| `mongodb` | `room-rental-mongodb` | `27017:27017` | MongoDB database |
+| `backend` | `room-rental-backend` | `8000:8000` | FastAPI REST API |
+| `frontend` | `room-rental-frontend` | `3000:3000` | Next.js frontend |
 
-### Starting the Stack
+MongoDB data is stored in the named Docker volume `mongodb_data`.
+
+## Start the Application
+
+From the repository root:
 
 ```bash
-# Build and start all services
 docker compose up --build
+```
 
-# Start in the background
+To start in the background:
+
+```bash
 docker compose up --build -d
+```
 
-# View logs
-docker compose logs -f
+After startup:
 
-# Stop all services
+| URL | Purpose |
+|---|---|
+| `http://localhost:3000` | Frontend |
+| `http://localhost:8000` | Backend root endpoint |
+| `http://localhost:8000/health` | Backend health check |
+| `http://localhost:8000/docs` | Swagger / OpenAPI UI |
+| `localhost:27017` | MongoDB connection from host tools |
+
+Stop services:
+
+```bash
 docker compose down
+```
 
-# Stop and remove volumes (deletes database data)
+Stop services and delete MongoDB data:
+
+```bash
 docker compose down -v
 ```
 
-After starting, the services are available at:
+## Environment Variables
 
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:8000
-- **API docs (Swagger):** http://localhost:8000/docs
-- **Health check:** http://localhost:8000/health
-- **MongoDB:** localhost:27017 (accessible with MongoDB Compass or `mongosh`)
+### Backend
 
-## Local Development Setup
+The backend reads environment variables through Pydantic Settings in `backend/app/config.py`. Docker Compose loads `backend/.env` through `env_file`.
 
-For faster iteration during development, you can run services individually outside Docker.
+| Variable | Default in code | Purpose |
+|---|---|---|
+| `APP_NAME` | `room-rental-api` | FastAPI application name |
+| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
+| `MONGODB_DB` | `room_rental` | MongoDB database name |
+| `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
+
+When the backend runs inside Docker Compose, `MONGODB_URL` should use the Docker service name:
+
+```text
+mongodb://mongodb:27017
+```
+
+### Frontend
+
+Docker Compose sets:
+
+| Variable | Value | Purpose |
+|---|---|---|
+| `API_BASE_URL` | `http://backend:8000` | Backend URL for server-side frontend requests inside Docker |
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Backend URL for browser/client-side requests |
+
+The frontend API helper falls back to `http://localhost:8000` if neither variable is set.
+
+## Local Development
+
+Docker Compose is the recommended way to run the full application. For faster local development, services can also be started separately.
 
 ### Backend
 
 ```bash
 cd backend
-
-# Create and activate a virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# or: .venv\Scripts\activate  # Windows
-
-# Install dependencies
+.venv\Scripts\activate
 pip install -r requirements.txt
-
-# Run the server with auto-reload
 uvicorn app.main:app --reload --port 8000
 ```
 
-Make sure MongoDB is running locally on port 27017, or update `MONGODB_URL` in `backend/.env`.
+Make sure MongoDB is reachable through `MONGODB_URL`.
+
+To run only MongoDB through Docker:
+
+```bash
+docker compose up mongodb -d
+```
 
 ### Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Run the dev server
 npm run dev
 ```
 
-The frontend dev server runs on http://localhost:3000 with hot module replacement.
+The frontend runs at:
 
-### MongoDB
-
-If not using Docker, install MongoDB locally or use a cloud instance (MongoDB Atlas free tier). Update the `MONGODB_URL` accordingly.
-
-```bash
-# Start MongoDB with Docker only (useful when developing outside Docker)
-docker compose up mongodb -d
+```text
+http://localhost:3000
 ```
 
-## Production / Demo Deployment
+## Current API Smoke Test
 
-For school demos or presentations, Docker Compose on a single machine is sufficient.
+After starting the stack, verify the backend:
 
-**Recommended approach:**
+```bash
+curl http://localhost:8000/health
+```
 
-1. Clone the repository on the target machine
-2. Adjust environment variables if needed (e.g., replace `localhost` with the machine's IP in `CORS_ORIGINS` and `NEXT_PUBLIC_API_BASE_URL`)
-3. Run `docker compose up --build -d`
-4. Access the app at the machine's IP address on port 3000
+Create a reservation:
 
-**For a more production-like setup (future work):**
-- Add a reverse proxy (Nginx or Traefik) to handle HTTPS and route traffic
-- Build the Next.js frontend as a production image (`npm run build` + `npm run start`)
-- Set `NODE_ENV=production` for the frontend
-- Add MongoDB authentication (username/password)
-- Use Docker secrets or a `.env` file excluded from version control for sensitive values
+```bash
+curl -X POST http://localhost:8000/reservations ^
+  -H "Content-Type: application/json" ^
+  -d "{\"room_id\":\"aula-1005\",\"contact_name\":\"Test User\",\"contact_email\":\"test@example.com\",\"date\":\"2026-06-15\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"notes\":\"Deployment smoke test\"}"
+```
+
+List reservations:
+
+```bash
+curl http://localhost:8000/reservations
+```
 
 ## MongoDB Backup and Restore
 
-### Backup
+Create a backup:
 
 ```bash
-# Create a backup archive
-docker exec room-rental-mongodb mongodump \
-  --db room_rental \
-  --archive=/tmp/room_rental_backup.archive
-
-# Copy the archive to the host
+docker exec room-rental-mongodb mongodump --db room_rental --archive=/tmp/room_rental_backup.archive
 docker cp room-rental-mongodb:/tmp/room_rental_backup.archive ./backups/
 ```
 
-### Restore
+Restore a backup:
 
 ```bash
-# Copy the archive into the container
 docker cp ./backups/room_rental_backup.archive room-rental-mongodb:/tmp/
-
-# Restore (--drop replaces existing collections)
-docker exec room-rental-mongodb mongorestore \
-  --db room_rental \
-  --archive=/tmp/room_rental_backup.archive \
-  --drop
+docker exec room-rental-mongodb mongorestore --db room_rental --archive=/tmp/room_rental_backup.archive --drop
 ```
 
-### Backup Strategy
-
-For a school project, manual backups before major changes or presentations are sufficient:
-
-- Back up before running data migrations or schema changes
-- Back up before demos
-- Store backups in a `backups/` directory (add to `.gitignore`)
-
-For a production deployment, consider scheduling daily backups with a cron job or a Docker sidecar container.
-
-## Configuration Notes
-
-- All backend configuration is managed through environment variables via Pydantic Settings. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full list.
-- The frontend configuration is minimal — just the API base URL.
-- Room-specific configuration (setup variants, capacity) will be stored in the MongoDB `rooms` collection, not in environment variables.
-- Configurable deadlines and reminder intervals will be stored in a MongoDB `config` collection so that staff can adjust them without redeployment.
+For the current school-project stage, manual backups before demos or larger changes are sufficient. A production deployment should add scheduled backups, credentials, and secure secret handling.
 
 ## Troubleshooting
 
-**Backend cannot connect to MongoDB:**
-- Check that the MongoDB container is running: `docker compose ps`
-- Verify `MONGODB_URL` in `backend/.env` uses `mongodb://mongodb:27017` (not `localhost`) when running in Docker
-- Check MongoDB logs: `docker compose logs mongodb`
+### Backend cannot connect to MongoDB
 
-**Frontend shows "Failed to fetch backend health":**
-- Verify the backend is running and healthy: `curl http://localhost:8000/health`
-- Check that `NEXT_PUBLIC_API_BASE_URL` is set correctly
-- If running in Docker, ensure the backend container is up before the frontend starts (Docker Compose `depends_on` handles startup order but not readiness)
+- Check service status:
 
-**Port conflicts:**
-- If port 3000, 8000, or 27017 is already in use, either stop the conflicting service or change the port mapping in `docker-compose.yml`
+  ```bash
+  docker compose ps
+  ```
 
-**Docker build fails:**
-- Ensure Docker has sufficient disk space
-- Try `docker compose build --no-cache` for a clean rebuild
+- Check MongoDB logs:
 
-**MongoDB data is gone after restart:**
-- Data persists in the `mongodb_data` named volume. It is only deleted if you run `docker compose down -v` (the `-v` flag removes volumes)
+  ```bash
+  docker compose logs mongodb
+  ```
 
-**Hot reload not working in Docker:**
-- The current frontend Dockerfile runs `npm run dev` which supports hot reload, but file watching may not work reliably across Docker volume mounts on some operating systems. For the best development experience, run the frontend outside Docker.
+- Verify that Docker Compose uses `MONGODB_URL=mongodb://mongodb:27017` in `backend/.env`.
+
+### Frontend cannot fetch backend health
+
+- Verify backend health manually:
+
+  ```bash
+  curl http://localhost:8000/health
+  ```
+
+- Check frontend logs:
+
+  ```bash
+  docker compose logs frontend
+  ```
+
+- Check that `NEXT_PUBLIC_API_BASE_URL` points to `http://localhost:8000` for browser requests.
+
+### Port conflicts
+
+If ports `3000`, `8000`, or `27017` are already in use, stop the conflicting local process or change the port mapping in `docker-compose.yml`.
+
+### Data disappeared
+
+MongoDB data persists across normal restarts through `mongodb_data`. Data is deleted when running:
+
+```bash
+docker compose down -v
+```
