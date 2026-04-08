@@ -111,6 +111,47 @@ ROOM_RULES = {
 }
 
 
+def validate_room_capacity(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.attendee_count > rules["capacity"]:
+        raise ValueError(
+            f"{payload.room.value} supports at most {rules['capacity']} attendees"
+        )
+
+
+def validate_room_seating(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.setup.seating_type not in rules["seating_types"]:
+        raise ValueError(
+            f"{payload.setup.seating_type.value} seating is not supported for {payload.room.value}"
+        )
+
+
+def validate_room_equipment(payload: "ReservationCreate", rules: dict) -> None:
+    requested_equipment = {item.type for item in payload.setup.equipment}
+    unsupported_equipment = requested_equipment - rules["equipment"]
+    if unsupported_equipment:
+        names = ", ".join(sorted(item.value for item in unsupported_equipment))
+        raise ValueError(f"Unsupported equipment for {payload.room.value}: {names}")
+
+
+def validate_room_services(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.setup.microphone_needed and not rules["microphone"]:
+        raise ValueError(f"Microphones are not supported for {payload.room.value}")
+    if payload.setup.technical_support_hours and not rules["technical_support"]:
+        raise ValueError(
+            f"Technical support hours are not supported for {payload.room.value}"
+        )
+    if payload.setup.regie_hours and payload.room != RoomId.aula_1_005:
+        raise ValueError(f"Regie hours are only supported for {RoomId.aula_1_005.value}")
+
+
+def validate_room_rules(payload: "ReservationCreate") -> None:
+    rules = ROOM_RULES[payload.room]
+    validate_room_capacity(payload, rules)
+    validate_room_seating(payload, rules)
+    validate_room_equipment(payload, rules)
+    validate_room_services(payload, rules)
+
+
 class ContactInfo(BaseModel):
     name: str = Field(min_length=1)
     email: EmailStr
@@ -212,31 +253,7 @@ class ReservationCreate(BaseModel):
         if self.start_time >= self.end_time:
             raise ValueError("start_time must be before end_time")
 
-        rules = ROOM_RULES[self.room]
-        if self.attendee_count > rules["capacity"]:
-            raise ValueError(
-                f"{self.room.value} supports at most {rules['capacity']} attendees"
-            )
-        if self.setup.seating_type not in rules["seating_types"]:
-            raise ValueError(
-                f"{self.setup.seating_type.value} seating is not supported for {self.room.value}"
-            )
-
-        requested_equipment = {item.type for item in self.setup.equipment}
-        unsupported_equipment = requested_equipment - rules["equipment"]
-        if unsupported_equipment:
-            names = ", ".join(sorted(item.value for item in unsupported_equipment))
-            raise ValueError(f"Unsupported equipment for {self.room.value}: {names}")
-
-        if self.setup.microphone_needed and not rules["microphone"]:
-            raise ValueError(f"Microphones are not supported for {self.room.value}")
-        if self.setup.technical_support_hours and not rules["technical_support"]:
-            raise ValueError(
-                f"Technical support hours are not supported for {self.room.value}"
-            )
-        if self.setup.regie_hours and self.room != RoomId.aula_1_005:
-            raise ValueError(f"Regie hours are only supported for {RoomId.aula_1_005.value}")
-
+        validate_room_rules(self)
         return self
 
 

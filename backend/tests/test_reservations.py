@@ -1,24 +1,37 @@
+from collections.abc import Generator
 import sys
-from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
+from typing import Generic, TypeVar, cast
+from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+fake_db_module = ModuleType("app.db")
+fake_db_module.db = SimpleNamespace()
+fake_db_module.ping_db = AsyncMock(return_value=True)
+sys.modules.setdefault("app.db", fake_db_module)
+
+import app.routers.reservations as reservations  # noqa: E402
+from app.routers.reservations import router as reservations_router  # noqa: E402
+
+app = FastAPI()
+app.include_router(reservations_router)
+
+T = TypeVar("T")
 
 
-async def fake_ping_db() -> bool:
-    return True
+class AwaitableResult(Generic[T]):
+    def __init__(self, value: T, exception: Exception | None = None):
+        self.value = value
+        self.exception = exception
 
-
-sys.modules.setdefault(
-    "app.db",
-    SimpleNamespace(db=SimpleNamespace(), ping_db=fake_ping_db),
-)
-
-from app.main import app
-from app.routers import reservations
+    def __await__(self) -> Generator[None, None, T]:
+        yield from ()
+        if self.exception:
+            raise self.exception
+        return self.value
 
 
 class InsertOneResult:
@@ -43,11 +56,11 @@ class FakeCursor:
         self._iter = iter(self.documents)
         return self
 
-    async def __anext__(self):
+    def __anext__(self) -> AwaitableResult[dict]:
         try:
-            return next(self._iter)
-        except StopIteration as exc:
-            raise StopAsyncIteration from exc
+            return AwaitableResult(next(self._iter))
+        except StopIteration:
+            return AwaitableResult(cast(dict, None), exception=StopAsyncIteration())
 
 
 class FakeReservationsCollection:
@@ -55,21 +68,25 @@ class FakeReservationsCollection:
         self.documents = []
         self.next_id = 1
 
-    async def insert_one(self, doc: dict) -> InsertOneResult:
+    def insert_one(self, doc: dict) -> AwaitableResult[InsertOneResult]:
         inserted_id = f"reservation-{self.next_id}"
         self.next_id += 1
         saved = {**doc, "_id": inserted_id}
         self.documents.append(saved)
-        return InsertOneResult(inserted_id)
+        return AwaitableResult(InsertOneResult(inserted_id))
 
-    async def find_one(self, query: dict) -> dict | None:
+    def find_one(self, query: dict) -> AwaitableResult[dict | None]:
         if "_id" in query:
-            return next(
-                (doc for doc in self.documents if doc["_id"] == query["_id"]),
-                None,
+            return AwaitableResult(
+                next(
+                    (doc for doc in self.documents if doc["_id"] == query["_id"]),
+                    None,
+                )
             )
 
-        return next((doc for doc in self.documents if matches_query(doc, query)), None)
+        return AwaitableResult(
+            next((doc for doc in self.documents if matches_query(doc, query)), None)
+        )
 
     def find(self):
         return FakeCursor(list(self.documents))
@@ -79,15 +96,21 @@ def matches_query(doc: dict, query: dict) -> bool:
     for field, expected in query.items():
         actual = doc.get(field)
         if isinstance(expected, dict):
-            if "$nin" in expected and actual in expected["$nin"]:
-                return False
-            if "$lt" in expected and not actual < expected["$lt"]:
-                return False
-            if "$gt" in expected and not actual > expected["$gt"]:
+            if not matches_mongo_operators(actual, expected):
                 return False
             continue
         if actual != expected:
             return False
+    return True
+
+
+def matches_mongo_operators(actual: object, expected: dict) -> bool:
+    if "$nin" in expected and actual in expected["$nin"]:
+        return False
+    if "$lt" in expected and actual >= expected["$lt"]:
+        return False
+    if "$gt" in expected and actual <= expected["$gt"]:
+        return False
     return True
 
 
