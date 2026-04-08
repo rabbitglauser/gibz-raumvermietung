@@ -1,7 +1,5 @@
-from collections.abc import Generator
 import sys
 from types import ModuleType, SimpleNamespace
-from typing import Generic, TypeVar, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,115 +17,81 @@ from app.routers.reservations import router as reservations_router  # noqa: E402
 app = FastAPI()
 app.include_router(reservations_router)
 
-T = TypeVar("T")
 
-
-class AwaitableResult(Generic[T]):
-    def __init__(self, value: T, exception: Exception | None = None):
-        self.value = value
-        self.exception = exception
-
-    def __await__(self) -> Generator[None, None, T]:
-        yield from ()
-        if self.exception:
-            raise self.exception
-        return self.value
-
-
-class InsertOneResult:
-    def __init__(self, inserted_id: str):
-        self.inserted_id = inserted_id
-
-
-class FakeCursor:
+class AsyncCursor:
     def __init__(self, documents: list[dict]):
         self.documents = documents
 
-    def sort(self, field: str, direction: int) -> "FakeCursor":
-        reverse = direction < 0
+    def sort(self, field: str, direction: int) -> "AsyncCursor":
         self.documents = sorted(
             self.documents,
             key=lambda item: item[field],
-            reverse=reverse,
+            reverse=direction < 0,
         )
         return self
 
     def __aiter__(self):
-        self._iter = iter(self.documents)
-        return self
+        return self._iterator()
 
-    def __anext__(self) -> AwaitableResult[dict]:
-        try:
-            return AwaitableResult(next(self._iter))
-        except StopIteration:
-            return AwaitableResult(cast(dict, None), exception=StopAsyncIteration())
+    async def _iterator(self):
+        for document in self.documents:
+            yield document
 
 
-class FakeReservationsCollection:
+class MockReservationsCollection:
     def __init__(self):
-        self.documents = []
+        self.documents: list[dict] = []
         self.next_id = 1
+        self.insert_one = AsyncMock(side_effect=self._insert_one)
+        self.find_one = AsyncMock(side_effect=self._find_one)
 
-    def insert_one(self, doc: dict) -> AwaitableResult[InsertOneResult]:
+    def _insert_one(self, doc: dict) -> SimpleNamespace:
         inserted_id = f"reservation-{self.next_id}"
         self.next_id += 1
-        saved = {**doc, "_id": inserted_id}
-        self.documents.append(saved)
-        return AwaitableResult(InsertOneResult(inserted_id))
+        self.documents.append({**doc, "_id": inserted_id})
+        return SimpleNamespace(inserted_id=inserted_id)
 
-    def find_one(self, query: dict) -> AwaitableResult[dict | None]:
+    def _find_one(self, query: dict) -> dict | None:
         if "_id" in query:
-            return AwaitableResult(
-                next(
-                    (doc for doc in self.documents if doc["_id"] == query["_id"]),
-                    None,
-                )
+            return next(
+                (doc for doc in self.documents if doc["_id"] == query["_id"]),
+                None,
             )
+        return next((doc for doc in self.documents if matches_query(doc, query)), None)
 
-        return AwaitableResult(
-            next((doc for doc in self.documents if matches_query(doc, query)), None)
-        )
-
-    def find(self):
-        return FakeCursor(list(self.documents))
+    def find(self) -> AsyncCursor:
+        return AsyncCursor(list(self.documents))
 
 
 def matches_query(doc: dict, query: dict) -> bool:
-    for field, expected in query.items():
-        actual = doc.get(field)
-        if isinstance(expected, dict):
-            if not matches_mongo_operators(actual, expected):
-                return False
-            continue
-        if actual != expected:
-            return False
-    return True
+    return all(matches_condition(doc.get(field), expected) for field, expected in query.items())
 
 
-def matches_mongo_operators(actual: object, expected: dict) -> bool:
-    if "$nin" in expected and actual in expected["$nin"]:
-        return False
-    if "$lt" in expected and actual >= expected["$lt"]:
-        return False
-    if "$gt" in expected and actual <= expected["$gt"]:
-        return False
-    return True
+def matches_condition(actual: object, expected: object) -> bool:
+    if not isinstance(expected, dict):
+        return actual == expected
+    return all(matches_operator(actual, operator, value) for operator, value in expected.items())
 
 
-class FakeDb:
-    def __init__(self):
-        self.reservations = FakeReservationsCollection()
+def matches_operator(actual: object, operator: str, expected: object) -> bool:
+    if operator == "$nin":
+        return actual not in expected
+    if operator == "$lt":
+        return actual < expected
+    if operator == "$gt":
+        return actual > expected
+    raise AssertionError(f"Unsupported fake Mongo operator: {operator}")
 
 
 @pytest.fixture
-def fake_db(monkeypatch):
-    db = FakeDb()
-    monkeypatch.setattr(reservations, "db", db)
-    return db
+def mock_collection(monkeypatch) -> MockReservationsCollection:
+    collection = MockReservationsCollection()
+    monkeypatch.setattr(reservations, "db", SimpleNamespace(reservations=collection))
+    return collection
 
 
 @pytest.fixture
-def client(fake_db):
+def client(mock_collection):
     return TestClient(app)
 
 
@@ -191,7 +155,7 @@ def valid_payload() -> dict:
     }
 
 
-def test_create_reservation_returns_confirmation(client, fake_db):
+def test_create_reservation_returns_confirmation(client, mock_collection):
     response = client.post("/reservations", json=valid_payload())
 
     assert response.status_code == 201
@@ -207,10 +171,11 @@ def test_create_reservation_returns_confirmation(client, fake_db):
     assert body["created_at"]
     assert body["updated_at"]
 
-    saved = fake_db.reservations.documents[0]
+    saved = mock_collection.documents[0]
     assert saved["status"] == "pending"
     assert saved["contact"]["name"] == "Test User"
     assert saved["created_at"] == saved["updated_at"]
+    mock_collection.insert_one.assert_awaited_once()
 
 
 def test_post_reservations_accepts_valid_reservation_data(client):
