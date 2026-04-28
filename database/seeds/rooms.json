@@ -1,0 +1,26 @@
+[
+  {
+    "room_id": "seminarraum-5-003-004",
+    "capacity": 36,
+    "seating_types": ["seminar", "block", "u_shape", "exam"],
+    "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard"],
+    "microphone": false,
+    "technical_support": false
+  },
+  {
+    "room_id": "seminarraum-2-112",
+    "capacity": 24,
+    "seating_types": ["seminar", "block", "u_shape", "exam"],
+    "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard"],
+    "microphone": false,
+    "technical_support": false
+  },
+  {
+    "room_id": "aula-1-005",
+    "capacity": 250,
+    "seating_types": ["theater", "banquet", "exam", "block"],
+    "equipment": ["projector", "flipchart", "pinboard", "whiteboard", "laptop", "lectern", "stage"],
+    "microphone": true,
+    "technical_support": true
+  }
+]

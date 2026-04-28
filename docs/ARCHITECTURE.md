@@ -13,13 +13,13 @@ graph TB
     Browser["Browser"]
     FE["Next.js Frontend<br/>localhost:3000"]
     BE["FastAPI Backend<br/>localhost:8000"]
-    DB["MongoDB 8<br/>localhost:27017"]
+    database["MongoDB 8<br/>localhost:27017"]
     Volume["Docker volume<br/>mongodb_data"]
 
     Browser --> FE
     FE -->|"REST call to /health"| BE
-    BE -->|"AsyncMongoClient"| DB
-    DB --> Volume
+    BE -->|"AsyncMongoClient"| database
+    database --> Volume
 ```
 
 Current services:
