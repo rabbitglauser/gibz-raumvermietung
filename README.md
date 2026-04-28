@@ -1,3 +1,26 @@
+<h1 align="center">
+  <img
+    src="https://github.com/user-attachments/assets/070048c2-46a3-45c7-8dea-92b34890dcb0"
+    alt="SuperLottomatch"
+    width="200"
+  />
+  <br/>
+  Project Trace — SuperLottomatch
+</h1>
+
+
+<p align="center">
+  Datenbank mt NoSQL<br/>
+  made at the <strong>GIBZ for M165 2026</strong>.
+</p>
+
+<p align="center">
+  <a href="https://superlottomatch.vercel.app/"><img src="https://img.shields.io/badge/Live-Demo.com-9eca45?style=for-the-badge" alt="Live Demo"/></a>
+  <a href="[https://github.com/Nepomuk5665/food-flight-tracker/tree/main/docs](https://github.com/rabbitglauser/super-lottomatch/tree/main/docs)"><img src="https://img.shields.io/badge/Docs-Architektur-003a5d?style=for-the-badge" alt="Docs"/></a>
+  <a href="https://www.figma.com/design/dU7SgQ4GXlvGvDLVR3grMB/Untitled?node-id=0-1&p=f"><img src="https://img.shields.io/badge/Figma-Mockup-F24E1E?style=for-the-badge&logo=figma&logoColor=white" alt="Figma"/></a>
+  <a href="https://www.notion.so/Cassandra-333e987f6a44807686f0f6a995211171?source=copy_link"><img src="https://img.shields.io/badge/Notion-Documentation-000000?style=for-the-badge&logo=notion&logoColor=white" alt="Notion"/></a>
+</p>
+
 # GIBZ Raumvermietung
 
 Web application for the GIBZ room reservation project in Module 165, using a Next.js frontend, FastAPI backend, and MongoDB as the NoSQL database.
