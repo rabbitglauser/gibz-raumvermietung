@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(python -m pytest -v)"
+      "Bash(python -m pytest -v)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\samue\\\\IdeaProjects\\\\gibz-raumvermietung\\\\.claude\" -ErrorAction SilentlyContinue -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
