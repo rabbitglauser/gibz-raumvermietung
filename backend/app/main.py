@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .db import ping_db
 from .routers.reservations import router as reservations_router
+from .routers.rooms import router as rooms_router
 
 
 @asynccontextmanager
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(reservations_router)
+app.include_router(rooms_router)
 
 
 @app.get("/")

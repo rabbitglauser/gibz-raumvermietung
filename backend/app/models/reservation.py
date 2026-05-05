@@ -1,0 +1,255 @@
+from datetime import date, datetime, time
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+from .enums import (
+    EquipmentType,
+    OrganizerType,
+    ReservationStatus,
+    RoomId,
+    SeatingType,
+)
+
+
+# Per-room rule table. Edit this when adding/changing a room — do not add
+# room-specific branches in handlers, services, or DAOs.
+ROOM_RULES = {
+    RoomId.seminarraum_5_003_004: {
+        "capacity": 36,
+        "seating_types": {
+            SeatingType.seminar,
+            SeatingType.block,
+            SeatingType.u_shape,
+            SeatingType.exam,
+        },
+        "equipment": {
+            EquipmentType.projector,
+            EquipmentType.flipchart,
+            EquipmentType.pinboard,
+            EquipmentType.visualizer,
+            EquipmentType.whiteboard,
+        },
+        "microphone": False,
+        "technical_support": False,
+    },
+    RoomId.seminarraum_2_112: {
+        "capacity": 24,
+        "seating_types": {
+            SeatingType.seminar,
+            SeatingType.block,
+            SeatingType.u_shape,
+            SeatingType.exam,
+        },
+        "equipment": {
+            EquipmentType.projector,
+            EquipmentType.flipchart,
+            EquipmentType.pinboard,
+            EquipmentType.visualizer,
+            EquipmentType.whiteboard,
+        },
+        "microphone": False,
+        "technical_support": False,
+    },
+    RoomId.aula_1_005: {
+        "capacity": 250,
+        "seating_types": {
+            SeatingType.theater,
+            SeatingType.banquet,
+            SeatingType.exam,
+            SeatingType.block,
+        },
+        "equipment": {
+            EquipmentType.projector,
+            EquipmentType.flipchart,
+            EquipmentType.pinboard,
+            EquipmentType.whiteboard,
+            EquipmentType.laptop,
+            EquipmentType.lectern,
+            EquipmentType.stage,
+        },
+        "microphone": True,
+        "technical_support": True,
+    },
+}
+
+
+def _validate_room_capacity(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.attendee_count > rules["capacity"]:
+        raise ValueError(
+            f"{payload.room.value} supports at most {rules['capacity']} attendees"
+        )
+
+
+def _validate_room_seating(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.setup.seating_type not in rules["seating_types"]:
+        raise ValueError(
+            f"{payload.setup.seating_type.value} seating is not supported for {payload.room.value}"
+        )
+
+
+def _validate_room_equipment(payload: "ReservationCreate", rules: dict) -> None:
+    requested_equipment = {item.type for item in payload.setup.equipment}
+    unsupported_equipment = requested_equipment - rules["equipment"]
+    if unsupported_equipment:
+        names = ", ".join(sorted(item.value for item in unsupported_equipment))
+        raise ValueError(f"Unsupported equipment for {payload.room.value}: {names}")
+
+
+def _validate_room_services(payload: "ReservationCreate", rules: dict) -> None:
+    if payload.setup.microphone_needed and not rules["microphone"]:
+        raise ValueError(f"Microphones are not supported for {payload.room.value}")
+    if payload.setup.technical_support_hours and not rules["technical_support"]:
+        raise ValueError(
+            f"Technical support hours are not supported for {payload.room.value}"
+        )
+    if payload.setup.regie_hours and payload.room != RoomId.aula_1_005:
+        raise ValueError(f"Regie hours are only supported for {RoomId.aula_1_005.value}")
+
+
+def validate_room_rules(payload: "ReservationCreate") -> None:
+    rules = ROOM_RULES[payload.room]
+    _validate_room_capacity(payload, rules)
+    _validate_room_seating(payload, rules)
+    _validate_room_equipment(payload, rules)
+    _validate_room_services(payload, rules)
+
+
+class ContactInfo(BaseModel):
+    name: str = Field(min_length=1)
+    email: EmailStr
+    phone: str = Field(min_length=1)
+    department: Optional[str] = None
+
+
+class BillingAddress(BaseModel):
+    name: str = Field(min_length=1)
+    street: str = Field(min_length=1)
+    postal_code_city: str = Field(min_length=1)
+    invoice_note: Optional[str] = None
+
+
+class CateringWindow(BaseModel):
+    enabled: bool = False
+    from_time: Optional[time] = None
+    to_time: Optional[time] = None
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "CateringWindow":
+        if not self.enabled:
+            return self
+        if self.from_time is None or self.to_time is None:
+            raise ValueError("enabled catering windows require from_time and to_time")
+        if self.from_time >= self.to_time:
+            raise ValueError("catering from_time must be before to_time")
+        return self
+
+
+class CateringInfo(BaseModel):
+    needed: bool = False
+    before_event: CateringWindow = Field(default_factory=CateringWindow)
+    during_event: CateringWindow = Field(default_factory=CateringWindow)
+    after_event: CateringWindow = Field(default_factory=CateringWindow)
+
+    @model_validator(mode="after")
+    def validate_catering_windows(self) -> "CateringInfo":
+        if not self.needed:
+            return self
+        if not any(
+            (
+                self.before_event.enabled,
+                self.during_event.enabled,
+                self.after_event.enabled,
+            )
+        ):
+            raise ValueError("needed catering requires at least one enabled time window")
+        return self
+
+
+class EquipmentRequest(BaseModel):
+    type: EquipmentType
+    quantity: int = Field(gt=0)
+
+
+class SetupInfo(BaseModel):
+    seating_type: SeatingType
+    equipment: list[EquipmentRequest] = Field(default_factory=list)
+    microphone_needed: bool = False
+    technical_support_hours: Optional[float] = Field(default=None, ge=0)
+    regie_hours: Optional[float] = Field(default=None, ge=0)
+
+
+class PublicationInfo(BaseModel):
+    info_screen_text: Optional[str] = None
+    publish_on_info_screen: bool = False
+    publish_target_groups: list[str] = Field(default_factory=list)
+
+
+class ReservationCreate(BaseModel):
+    event_name: str = Field(min_length=1)
+    date: date
+    setup_start_time: time
+    start_time: time
+    end_time: time
+    room: RoomId
+    attendee_count: int = Field(gt=0)
+    organizer_type: OrganizerType
+    contact: ContactInfo
+    billing_address: BillingAddress
+    catering: CateringInfo = Field(default_factory=CateringInfo)
+    setup: SetupInfo
+    publication: Optional[PublicationInfo] = None
+    remarks: Optional[str] = None
+    terms_accepted: bool
+
+    @field_validator("terms_accepted")
+    @classmethod
+    def validate_terms_accepted(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("terms_accepted must be true")
+        return value
+
+    @model_validator(mode="after")
+    def validate_business_rules(self) -> "ReservationCreate":
+        if self.setup_start_time > self.start_time:
+            raise ValueError("setup_start_time must be before or equal to start_time")
+        if self.start_time >= self.end_time:
+            raise ValueError("start_time must be before end_time")
+
+        validate_room_rules(self)
+        return self
+
+
+class ReservationOut(ReservationCreate):
+    id: str
+    status: ReservationStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReservationList(BaseModel):
+    items: list[ReservationOut]
+
+
+def reservation_to_response(doc: dict) -> dict:
+    return {
+        "id": str(doc["_id"]),
+        "event_name": doc["event_name"],
+        "date": doc["date"],
+        "setup_start_time": doc["setup_start_time"],
+        "start_time": doc["start_time"],
+        "end_time": doc["end_time"],
+        "room": doc["room"],
+        "attendee_count": doc["attendee_count"],
+        "organizer_type": doc["organizer_type"],
+        "contact": doc["contact"],
+        "billing_address": doc["billing_address"],
+        "catering": doc.get("catering", {}),
+        "setup": doc["setup"],
+        "publication": doc.get("publication"),
+        "remarks": doc.get("remarks"),
+        "terms_accepted": doc["terms_accepted"],
+        "status": doc["status"],
+        "created_at": doc["created_at"],
+        "updated_at": doc["updated_at"],
+    }

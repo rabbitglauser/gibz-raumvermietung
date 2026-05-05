@@ -1,7 +1,7 @@
 // Runs once on first container start (when /data/db is empty).
 // Creates collections with JSON Schema validators for the room_rental database.
 //
-// Mirrors the Pydantic models in backend/app/routers/reservations.py.
+// Mirrors the Pydantic models in backend/app/models/.
 
 const dbName = process.env.MONGO_INITDB_DATABASE || "room_rental";
 const target = db.getSiblingDB(dbName);
@@ -34,6 +34,8 @@ const EQUIPMENT_TYPES = [
   "lectern",
   "stage",
 ];
+
+const USER_ROLES = ["staff", "admin"];
 
 target.createCollection("rooms", {
   validator: {
@@ -142,4 +144,21 @@ target.createCollection("reservations", {
   validationLevel: "moderate",
 });
 
-print(`[init] collections created in '${dbName}': rooms, reservations`);
+target.createCollection("users", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["username", "password_hash", "role", "name", "email"],
+      properties: {
+        username: { bsonType: "string", minLength: 1 },
+        password_hash: { bsonType: "string", minLength: 1 },
+        role: { enum: USER_ROLES },
+        name: { bsonType: "string", minLength: 1 },
+        email: { bsonType: "string" },
+        created_at: { bsonType: ["date", "null"] },
+      },
+    },
+  },
+});
+
+print(`[init] collections created in '${dbName}': rooms, reservations, users`);

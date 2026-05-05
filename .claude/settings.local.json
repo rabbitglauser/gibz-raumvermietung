@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(python -m pytest -v)"
+      "Bash(python -m pytest -v)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\samue\\\\IdeaProjects\\\\gibz-raumvermietung\\\\.claude\" -ErrorAction SilentlyContinue -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(git *)",
+      "Bash(pytest -q)",
+      "Bash(pytest backend/tests/test_health.py backend/tests/test_reservations.py backend/tests/test_rooms.py backend/tests/test_dao.py -v)"
     ]
   }
 }
