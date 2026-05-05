@@ -1,2 +1,3 @@
-// No organisms yet. Re-export new organism components from this file.
-export {};
+export * from "./Header";
+export * from "./FilterBar";
+export * from "./Footer";
