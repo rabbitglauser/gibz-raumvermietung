@@ -6,93 +6,36 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+# Stub app.db before any router import. conftest.py also does this; we
+# guard here so this module is safe to run in isolation as well.
 fake_db_module = ModuleType("app.db")
 fake_db_module.db = SimpleNamespace()
 fake_db_module.ping_db = AsyncMock(return_value=True)
+fake_db_module.get_database = lambda: fake_db_module.db
 sys.modules.setdefault("app.db", fake_db_module)
 
-import app.routers.reservations as reservations  # noqa: E402
+from app.db import get_database  # noqa: E402
 from app.routers.reservations import router as reservations_router  # noqa: E402
+
+from .mocks import MockReservationsCollection  # noqa: E402
 
 app = FastAPI()
 app.include_router(reservations_router)
 
 
-class AsyncCursor:
-    def __init__(self, documents: list[dict]):
-        self.documents = documents
-
-    def sort(self, field: str, direction: int) -> "AsyncCursor":
-        self.documents = sorted(
-            self.documents,
-            key=lambda item: item[field],
-            reverse=direction < 0,
-        )
-        return self
-
-    def __aiter__(self):
-        return self._iterator()
-
-    async def _iterator(self):
-        for document in self.documents:
-            yield document
-
-
-class MockReservationsCollection:
-    def __init__(self):
-        self.documents: list[dict] = []
-        self.next_id = 1
-        self.insert_one = AsyncMock(side_effect=self._insert_one)
-        self.find_one = AsyncMock(side_effect=self._find_one)
-
-    def _insert_one(self, doc: dict) -> SimpleNamespace:
-        inserted_id = f"reservation-{self.next_id}"
-        self.next_id += 1
-        self.documents.append({**doc, "_id": inserted_id})
-        return SimpleNamespace(inserted_id=inserted_id)
-
-    def _find_one(self, query: dict) -> dict | None:
-        if "_id" in query:
-            return next(
-                (doc for doc in self.documents if doc["_id"] == query["_id"]),
-                None,
-            )
-        return next((doc for doc in self.documents if matches_query(doc, query)), None)
-
-    def find(self) -> AsyncCursor:
-        return AsyncCursor(list(self.documents))
-
-
-def matches_query(doc: dict, query: dict) -> bool:
-    return all(matches_condition(doc.get(field), expected) for field, expected in query.items())
-
-
-def matches_condition(actual: object, expected: object) -> bool:
-    if not isinstance(expected, dict):
-        return actual == expected
-    return all(matches_operator(actual, operator, value) for operator, value in expected.items())
-
-
-def matches_operator(actual: object, operator: str, expected: object) -> bool:
-    if operator == "$nin":
-        return actual not in expected
-    if operator == "$lt":
-        return actual < expected
-    if operator == "$gt":
-        return actual > expected
-    raise AssertionError(f"Unsupported fake Mongo operator: {operator}")
-
-
 @pytest.fixture
-def mock_collection(monkeypatch) -> MockReservationsCollection:
-    collection = MockReservationsCollection()
-    monkeypatch.setattr(reservations, "db", SimpleNamespace(reservations=collection))
-    return collection
+def mock_collection() -> MockReservationsCollection:
+    return MockReservationsCollection()
 
 
 @pytest.fixture
 def client(mock_collection):
-    return TestClient(app)
+    fake_db = SimpleNamespace(reservations=mock_collection)
+    app.dependency_overrides[get_database] = lambda: fake_db
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
 
 
 def valid_payload() -> dict:
