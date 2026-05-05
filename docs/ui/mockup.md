@@ -237,4 +237,3 @@ The main focus of the design is:
 - employee-friendly management views
 - fast filtering and preparation workflows
 - a clean and understandable interface
-```
