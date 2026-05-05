@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 interface RoomCardProps {
   title: string;
   description: string;
@@ -5,6 +7,7 @@ interface RoomCardProps {
   price: string;
   imageUrl: string;
   imageAlt?: string;
+  href?: string;
 }
 
 function PeopleIcon() {
@@ -35,6 +38,7 @@ export function RoomCard({
   price,
   imageUrl,
   imageAlt,
+  href = "/raeume/seminarraum-s104",
 }: RoomCardProps) {
   return (
     <article className="flex flex-col border border-[#d6dde5] bg-white">
@@ -60,12 +64,12 @@ export function RoomCard({
           <span className="font-semibold text-[#00539b]">{price}</span>
         </div>
 
-        <button
-          type="button"
-          className="mt-4 border border-[#003b73] py-2 text-[12px] font-semibold tracking-[0.08em] text-[#003b73] hover:bg-[#003b73] hover:text-white"
+        <Link
+          href={href}
+          className="mt-4 border border-[#003b73] py-2 text-center text-[12px] font-semibold tracking-[0.08em] text-[#003b73] hover:bg-[#003b73] hover:text-white"
         >
           DETAILS ANSEHEN
-        </button>
+        </Link>
       </div>
     </article>
   );
