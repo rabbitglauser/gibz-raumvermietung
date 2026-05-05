@@ -1,16 +1,22 @@
 const API_BASE_URL =
-    process.env.API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:8000";
+  process.env.API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:8000"
+    : undefined);
 
 export async function getHealth() {
-    const res = await fetch(`${API_BASE_URL}/health`, {
-        cache: "no-store",
-    });
+  if (!API_BASE_URL) {
+    return { status: "not configured" };
+  }
 
-    if (!res.ok) {
-        throw new Error(`Failed to fetch backend health: ${res.status}`);
-    }
+  const res = await fetch(`${API_BASE_URL}/health`, {
+    cache: "force-cache",
+  });
 
-    return res.json();
+  if (!res.ok) {
+    throw new Error(`Failed to fetch backend health: ${res.status}`);
+  }
+
+  return res.json();
 }

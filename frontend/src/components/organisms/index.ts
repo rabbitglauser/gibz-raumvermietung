@@ -5,3 +5,4 @@ export * from "./BookingSidebar";
 export * from "./FeaturesSection";
 export * from "./SeatingSection";
 export * from "./AvailabilityCalendar";
+export * from "./BackendStatus";
