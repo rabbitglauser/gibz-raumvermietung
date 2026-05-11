@@ -1,26 +1,494 @@
 [
   {
-    "room_id": "seminarraum-5-003-004",
-    "capacity": 36,
-    "seating_types": ["seminar", "block", "u_shape", "exam"],
-    "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard"],
-    "microphone": false,
-    "technical_support": false
+    "room_id": "aula-1-005",
+    "sort_order": 1,
+    "name": "Aula 1.005",
+    "room_number": "1.005",
+    "building": "Trakt 1",
+    "floor": "Erdgeschoss",
+    "area_m2": 415,
+    "location": "Trakt 1, Erdgeschoss",
+    "description": "Aula für Veranstaltungen, Konzerte, Seminare und Prüfungen mit fix installierter Bühne und AV-Technik.",
+    "image_path": "/Aula-1.005.png",
+    "image_note": "Achtung: Grundeinrichtung (Bühne) ändert ab Sommer 2025. Bilder folgen.",
+    "capacity": 330,
+    "seating_types": ["theater", "seminar", "u_shape", "exam"],
+    "equipment": ["projector", "flipchart", "pinboard", "laptop", "lectern", "stage"],
+    "microphone": true,
+    "technical_support": true,
+    "inspection_contact": {
+      "name": "Hausdienst",
+      "email": "hausdienst.gibz@zg.ch",
+      "phone": "+41 41 594 77 60"
+    },
+    "fixed_setup": [
+      "Bühne (8 m x 3 m, 17 cm hoch)",
+      "Leinwand (2.5 m x 4.5 m)",
+      "Rednerpult mit Schwanenhalsmikrofon",
+      "Touch-Panel Audio/Video-Steuerung",
+      "Beamer mit Sound-Anlage",
+      "Anschlüsse für eigenes Notebook",
+      "Garderobenständer für ca. 300 Jacken",
+      "Anlage für Hörbeeinträchtigte"
+    ],
+    "notebook_connections": [
+      "HDMI inkl. Mini-DisplayPort-Adapter",
+      "USB-C (DP Alt-Mode)",
+      "ClickShare geplant"
+    ],
+    "internet_access": [
+      "WLAN-SSID: PUBLIC-edu-zg.ch",
+      "LAN über USB-C"
+    ],
+    "seating_options": [
+      {
+        "type": "theater",
+        "label": "Konzertbestuhlung",
+        "max_people": 330,
+        "notes": [
+          "Der Abstand der Stuhlreihen muss mindestens 0.45 m betragen.",
+          "Der Verkehrsweg muss 1.20 m breit sein.",
+          "Im hinteren Bereich stehen jeweils 20 Reservestühle aufgestapelt bereit."
+        ]
+      },
+      {
+        "type": "seminar",
+        "label": "Seminarbestuhlung",
+        "max_tables": 61,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 3,
+        "recommended_chairs_per_table": 2,
+        "notes": [
+          "Für Prüfungen werden 1-2 Stühle empfohlen.",
+          "Für Seminare werden 2 Stühle pro Tisch empfohlen."
+        ]
+      },
+      {
+        "type": "u_shape",
+        "label": "U-Bestuhlung",
+        "max_tables": 17,
+        "recommended_tables": 11,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 3,
+        "recommended_chairs_per_table": 2,
+        "notes": [
+          "Für Prüfungen werden 1-2 Stühle empfohlen.",
+          "Für Seminare werden 2 Stühle pro Tisch empfohlen."
+        ]
+      },
+      {
+        "type": "exam",
+        "label": "Prüfungsbestuhlung",
+        "max_tables": 61,
+        "table_size": "80 x 180 cm",
+        "notes": [
+          "Im Zeitraum Mitte Mai bis Ende Juni kann die Tischstellung nicht verändert werden."
+        ]
+      }
+    ],
+    "additional_material": [
+      {
+        "name": "Bistrotisch ohne Verpflegung",
+        "max_quantity": 5
+      },
+      {
+        "name": "Pinwand",
+        "dimensions": "120 x 150 cm",
+        "max_quantity": 9
+      },
+      {
+        "name": "Flipchart fahrbar",
+        "max_quantity": 2
+      },
+      {
+        "name": "Magnetwand fahrbar",
+        "dimensions": "160 x 300 cm",
+        "max_quantity": 8
+      }
+    ],
+    "microphones": [
+      {
+        "kind": "Desk",
+        "quantity": 3
+      },
+      {
+        "kind": "Hand",
+        "quantity": 2
+      },
+      {
+        "kind": "Headset",
+        "quantity": 3
+      }
+    ],
+    "microphone_notes": [
+      "Bei Verwendung der Mikrofonanlage wird vor dem Anlass durch den Hausdienst eine Instruktion durchgeführt.",
+      "Wird Regieführung durch den Hausdienst gewünscht, erfolgt die Instruktion spätestens 45 Minuten vor Veranstaltungsbeginn.",
+      "Ein Drehbuch wird eine Woche vor dem Anlass benötigt.",
+      "Mikrofonanlage ab 100 Personen empfohlen.",
+      "Regieführung: Fr. 90 pro Stunde."
+    ],
+    "pricing": [
+      {
+        "organizer_type": "external_customer",
+        "label": "Externe Kundin / Externer Kunde",
+        "half_day_chf": 980,
+        "full_day_chf": 1420,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "public_sector_oda",
+        "label": "Öffentliche Hand, OdA",
+        "half_day_chf": 390,
+        "full_day_chf": 570,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "cantonal_admin_zug",
+        "label": "Kantonale Verwaltung Zug",
+        "half_day_chf": 0,
+        "full_day_chf": 0,
+        "note": "Kostenlos, keine kommerzielle Verwendung gestattet."
+      }
+    ],
+    "catering": {
+      "required": true,
+      "provider": "Restaurant Treff",
+      "contact": {
+        "name": "Restaurant Treff",
+        "email": "treff.gibz@zfv.ch",
+        "phone": "+41 79 620 14 69"
+      },
+      "notes": [
+        "Speisen und Getränke sind verpflichtend über das hausinterne Restaurant Treff zu beziehen.",
+        "Das Restaurant Treff wird im Zeitraum Sommer 2027 bis Winter 2027 saniert. Während den Bauarbeiten kommt es zu Lärmemissionen, die in der Aula hörbar sind."
+      ]
+    },
+    "reservation": {
+      "send_to_email": "sekretariat.gibz@zg.ch",
+      "catering_send_to_email": "treff.gibz@zfv.ch",
+      "approval_date": "2026-03-24",
+      "approved_by": "Leiterin Administration"
+    },
+    "reservation_notes": [
+      "Textanzeige auf Info-Bildschirme möglich.",
+      "Publikation auf der Terminliste intern und/oder extern nur für interne GIBZ-Schulanlässe."
+    ],
+    "publication_options": [
+      "Mitarbeitende GIBZ",
+      "Lernende",
+      "Berufsbildende",
+      "Informationssystem (GIBZ-Website)"
+    ]
   },
   {
     "room_id": "seminarraum-2-112",
-    "capacity": 24,
-    "seating_types": ["seminar", "block", "u_shape", "exam"],
-    "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard"],
+    "sort_order": 2,
+    "name": "Seminarraum 2.112",
+    "room_number": "2.112",
+    "building": "Trakt 2",
+    "floor": "1. Obergeschoss",
+    "area_m2": 108,
+    "location": "Trakt 2, 1. Obergeschoss",
+    "description": "Seminarraum für Unterricht, Sitzungen, Prüfungen und kleinere Veranstaltungen mit Beamer, Visualizer und flexibler Bestuhlung.",
+    "image_path": "/Seminarraum-2.112.png",
+    "capacity": 50,
+    "seating_types": ["seminar", "u_shape", "theater", "exam"],
+    "equipment": ["projector", "flipchart", "pinboard", "visualizer"],
     "microphone": false,
-    "technical_support": false
+    "technical_support": false,
+    "inspection_contact": {
+      "name": "Hausdienst",
+      "email": "hausdienst.gibz@zg.ch",
+      "phone": "+41 41 594 77 60"
+    },
+    "fixed_setup": [
+      "2 Referententische mit 3 Stühlen",
+      "TouchPanel Audio/Video-Steuerung",
+      "Beamer mit Sound-Anlage",
+      "Visualizer",
+      "Anschlüsse für eigenes Notebook",
+      "2 Flipcharts"
+    ],
+    "notebook_connections": [
+      "HDMI inkl. Mini-DisplayPort-Adapter",
+      "USB-C (DP Alt-Mode)"
+    ],
+    "internet_access": [
+      "WLAN-SSID: PUBLIC-edu-zg.ch",
+      "LAN über USB-C"
+    ],
+    "seating_options": [
+      {
+        "type": "seminar",
+        "label": "Seminarbestuhlung",
+        "max_tables": 18,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 3,
+        "recommended_chairs_per_table": 2,
+        "notes": [
+          "Für Prüfungen werden 1-2 Stühle empfohlen.",
+          "Für Seminare werden 2 Stühle pro Tisch empfohlen."
+        ]
+      },
+      {
+        "type": "u_shape",
+        "label": "U-Bestuhlung",
+        "max_tables": 11,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 2,
+        "notes": [
+          "Pro Tisch sind 1-2 Stühle möglich."
+        ]
+      },
+      {
+        "type": "theater",
+        "label": "Konzertbestuhlung",
+        "max_people": 50,
+        "notes": [
+          "Die Stühle müssen miteinander verbunden sein.",
+          "Der Abstand der Stuhlreihen muss mindestens 0.45 m betragen.",
+          "Der Verkehrsweg muss 1.20 m breit sein."
+        ]
+      },
+      {
+        "type": "exam",
+        "label": "Prüfungsbestuhlung",
+        "max_tables": 18,
+        "table_size": "80 x 180 cm",
+        "notes": [
+          "Im Zeitraum Mitte Mai bis Ende Juni kann die Tischstellung nicht verändert werden."
+        ]
+      }
+    ],
+    "additional_material": [
+      {
+        "name": "Pinwand",
+        "dimensions": "120 x 150 cm",
+        "max_quantity": 2
+      },
+      {
+        "name": "Flipchart fahrbar",
+        "max_quantity": 2
+      }
+    ],
+    "microphones": [],
+    "microphone_notes": [],
+    "pricing": [
+      {
+        "organizer_type": "external_customer",
+        "label": "Externe Kundin / Externer Kunde",
+        "half_day_chf": 380,
+        "full_day_chf": 500,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "public_sector_oda",
+        "label": "Öffentliche Hand, OdA",
+        "half_day_chf": 150,
+        "full_day_chf": 200,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "cantonal_admin_zug",
+        "label": "Kantonale Verwaltung Zug",
+        "half_day_chf": 0,
+        "full_day_chf": 0,
+        "note": "Kostenlos, keine kommerzielle Verwendung gestattet."
+      }
+    ],
+    "catering": {
+      "required": true,
+      "provider": "Restaurant Treff",
+      "contact": {
+        "name": "Restaurant Treff",
+        "email": "treff.gibz@zfv.ch",
+        "phone": "+41 79 620 14 69"
+      },
+      "notes": [
+        "Speisen und Getränke sind verpflichtend über das hausinterne Restaurant Treff zu beziehen."
+      ]
+    },
+    "reservation": {
+      "send_to_email": "sekretariat.gibz@zg.ch",
+      "catering_send_to_email": "treff.gibz@zfv.ch",
+      "approval_date": "2026-03-24",
+      "approved_by": "Leiterin Administration"
+    },
+    "reservation_notes": [
+      "Textanzeige auf Plasma-Bildschirmen möglich.",
+      "Publikation auf der Terminliste intern und/oder extern nur für interne GIBZ-Schulanlässe."
+    ],
+    "publication_options": [
+      "Mitarbeitende GIBZ",
+      "Lernende",
+      "Berufsbildende",
+      "Informationssystem (GIBZ-Website)"
+    ]
   },
   {
-    "room_id": "aula-1-005",
-    "capacity": 250,
-    "seating_types": ["theater", "banquet", "exam", "block"],
-    "equipment": ["projector", "flipchart", "pinboard", "whiteboard", "laptop", "lectern", "stage"],
+    "room_id": "seminarraum-5-003-004",
+    "sort_order": 3,
+    "name": "Seminarraum 5.003/004",
+    "room_number": "5.003/004",
+    "building": "Trakt 5",
+    "floor": "Erdgeschoss",
+    "area_m2": 141,
+    "location": "Trakt 5, Erdgeschoss",
+    "description": "Zwei gemeinsam vermietete Seminarräume, die als ein Raum genutzt oder mit Trennwand abgegrenzt werden können.",
+    "image_path": "/Seminarraum-5.003.png",
+    "capacity": 100,
+    "seating_types": ["seminar", "u_shape", "theater", "exam"],
+    "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard", "lectern"],
     "microphone": true,
-    "technical_support": true
+    "technical_support": false,
+    "inspection_contact": {
+      "name": "Hausdienst",
+      "email": "hausdienst.gibz@zg.ch",
+      "phone": "+41 41 594 77 60"
+    },
+    "fixed_setup": [
+      "Leinwand (2.0 m x 3.0 m)",
+      "Rednerpult",
+      "1 Referententisch gross mit einem Stuhl",
+      "1 Referententisch klein mit einem Stuhl",
+      "TouchPanel Audio/Video-Steuerung",
+      "Beamer mit Sound-Anlage",
+      "Visualizer",
+      "Anschlüsse für eigenes Notebook",
+      "7 Whiteboards fix",
+      "2 Flipcharts"
+    ],
+    "notebook_connections": [
+      "HDMI inkl. Mini-DisplayPort-Adapter",
+      "USB-C (DP Alt-Mode)"
+    ],
+    "internet_access": [
+      "WLAN-SSID: PUBLIC-edu-zg.ch",
+      "LAN über USB-C"
+    ],
+    "seating_options": [
+      {
+        "type": "seminar",
+        "label": "Seminarbestuhlung",
+        "max_tables": 25,
+        "recommended_tables": 14,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 2,
+        "recommended_chairs_per_table": 2,
+        "notes": [
+          "Für Prüfungen wird 1 Stuhl pro Tisch empfohlen.",
+          "Für Seminare werden 2 Stühle pro Tisch empfohlen."
+        ]
+      },
+      {
+        "type": "u_shape",
+        "label": "U-Bestuhlung",
+        "max_tables": 18,
+        "recommended_tables": 10,
+        "table_size": "80 x 180 cm",
+        "max_chairs_per_table": 2,
+        "notes": [
+          "Maximal 18 Tische sind bei offener Trennwand möglich.",
+          "Pro Tisch sind 1-2 Stühle möglich."
+        ]
+      },
+      {
+        "type": "theater",
+        "label": "Konzertbestuhlung",
+        "max_people": 100,
+        "notes": [
+          "Die Stühle sind miteinander verbunden.",
+          "Die Trennwand muss ab mehr als 50 Personen zwingend offen sein.",
+          "Der Abstand der Stuhlreihen muss mindestens 0.45 m betragen.",
+          "Der Verkehrsweg muss 1.20 m breit sein."
+        ]
+      },
+      {
+        "type": "exam",
+        "label": "Prüfungsbestuhlung",
+        "max_tables": 25,
+        "table_size": "80 x 180 cm",
+        "notes": [
+          "Im Zeitraum Mitte Mai bis Ende Juni kann die Tischstellung nicht verändert werden."
+        ]
+      }
+    ],
+    "additional_material": [
+      {
+        "name": "Pinwand",
+        "dimensions": "120 x 150 cm",
+        "max_quantity": 2
+      },
+      {
+        "name": "Flipchart fahrbar",
+        "max_quantity": 2
+      }
+    ],
+    "microphones": [
+      {
+        "kind": "Hand",
+        "quantity": 1
+      },
+      {
+        "kind": "Headset",
+        "quantity": 2
+      }
+    ],
+    "microphone_notes": [
+      "Bei Verwendung der Mikrofonanlage wird die Instruktion vor dem Anlass gemacht.",
+      "Es können maximal 2 Mikrofone parallel betrieben werden."
+    ],
+    "pricing": [
+      {
+        "organizer_type": "external_customer",
+        "label": "Externe Kundin / Externer Kunde",
+        "half_day_chf": 420,
+        "full_day_chf": 570,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "public_sector_oda",
+        "label": "Öffentliche Hand, OdA",
+        "half_day_chf": 170,
+        "full_day_chf": 230,
+        "note": "1/2 Tag = 5 Std. inklusive Vor-/Nachbereitungszeit der Veranstaltung."
+      },
+      {
+        "organizer_type": "cantonal_admin_zug",
+        "label": "Kantonale Verwaltung Zug",
+        "half_day_chf": 0,
+        "full_day_chf": 0,
+        "note": "Kostenlos, keine kommerzielle Verwendung gestattet."
+      }
+    ],
+    "catering": {
+      "required": true,
+      "provider": "Restaurant Treff",
+      "contact": {
+        "name": "Restaurant Treff",
+        "email": "treff.gibz@zfv.ch",
+        "phone": "+41 79 620 14 69"
+      },
+      "notes": [
+        "Speisen und Getränke sind verpflichtend über das hausinterne Restaurant Treff zu beziehen."
+      ]
+    },
+    "reservation": {
+      "send_to_email": "sekretariat.gibz@zg.ch",
+      "catering_send_to_email": "treff.gibz@zfv.ch",
+      "approval_date": "2026-03-24",
+      "approved_by": "Leiterin Administration"
+    },
+    "reservation_notes": [
+      "Die beiden Seminarräume werden immer nur gemeinsam vermietet (Grund: Akustik).",
+      "Textanzeige auf Info-Bildschirme möglich.",
+      "Publikation auf der Terminliste intern und/oder extern nur für interne GIBZ-Schulanlässe."
+    ],
+    "publication_options": [
+      "Mitarbeitende GIBZ",
+      "Lernende",
+      "Berufsbildende",
+      "Informationssystem (GIBZ-Website)"
+    ]
   }
 ]

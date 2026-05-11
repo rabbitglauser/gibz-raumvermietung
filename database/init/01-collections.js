@@ -41,10 +41,39 @@ target.createCollection("rooms", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["room_id", "capacity", "seating_types", "equipment"],
+      required: [
+        "room_id",
+        "sort_order",
+        "name",
+        "room_number",
+        "building",
+        "floor",
+        "area_m2",
+        "location",
+        "description",
+        "capacity",
+        "seating_types",
+        "equipment",
+        "inspection_contact",
+        "fixed_setup",
+        "seating_options",
+        "pricing",
+        "catering",
+        "reservation",
+      ],
       properties: {
         room_id: { enum: ROOM_IDS },
-        capacity: { bsonType: "int", minimum: 1 },
+        sort_order: { bsonType: ["int", "double"], minimum: 1 },
+        name: { bsonType: "string", minLength: 1 },
+        room_number: { bsonType: "string", minLength: 1 },
+        building: { bsonType: "string", minLength: 1 },
+        floor: { bsonType: "string", minLength: 1 },
+        area_m2: { bsonType: ["int", "double"], minimum: 1 },
+        location: { bsonType: "string", minLength: 1 },
+        description: { bsonType: "string", minLength: 1 },
+        image_path: { bsonType: ["string", "null"] },
+        image_note: { bsonType: ["string", "null"] },
+        capacity: { bsonType: ["int", "double"], minimum: 1 },
         seating_types: {
           bsonType: "array",
           items: { enum: SEATING_TYPES },
@@ -55,6 +84,132 @@ target.createCollection("rooms", {
         },
         microphone: { bsonType: "bool" },
         technical_support: { bsonType: "bool" },
+        inspection_contact: {
+          bsonType: "object",
+          required: ["name", "email"],
+          properties: {
+            name: { bsonType: "string", minLength: 1 },
+            email: { bsonType: "string", minLength: 1 },
+            phone: { bsonType: ["string", "null"] },
+          },
+        },
+        fixed_setup: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
+        notebook_connections: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
+        internet_access: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
+        seating_options: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["type", "label"],
+            properties: {
+              type: { enum: SEATING_TYPES },
+              label: { bsonType: "string", minLength: 1 },
+              max_people: { bsonType: ["int", "double", "null"], minimum: 1 },
+              max_tables: { bsonType: ["int", "double", "null"], minimum: 1 },
+              recommended_tables: { bsonType: ["int", "double", "null"], minimum: 1 },
+              table_size: { bsonType: ["string", "null"] },
+              max_chairs_per_table: { bsonType: ["int", "double", "null"], minimum: 1 },
+              recommended_chairs_per_table: { bsonType: ["int", "double", "null"], minimum: 1 },
+              notes: {
+                bsonType: "array",
+                items: { bsonType: "string" },
+              },
+            },
+          },
+        },
+        additional_material: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["name"],
+            properties: {
+              name: { bsonType: "string", minLength: 1 },
+              max_quantity: { bsonType: ["int", "double", "null"], minimum: 1 },
+              dimensions: { bsonType: ["string", "null"] },
+              notes: {
+                bsonType: "array",
+                items: { bsonType: "string" },
+              },
+            },
+          },
+        },
+        microphones: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["kind", "quantity"],
+            properties: {
+              kind: { bsonType: "string", minLength: 1 },
+              quantity: { bsonType: ["int", "double"], minimum: 1 },
+            },
+          },
+        },
+        microphone_notes: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
+        pricing: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["organizer_type", "label"],
+            properties: {
+              organizer_type: { enum: ORGANIZER_TYPES },
+              label: { bsonType: "string", minLength: 1 },
+              half_day_chf: { bsonType: ["int", "double", "null"], minimum: 0 },
+              full_day_chf: { bsonType: ["int", "double", "null"], minimum: 0 },
+              note: { bsonType: ["string", "null"] },
+            },
+          },
+        },
+        catering: {
+          bsonType: "object",
+          required: ["required", "provider", "contact"],
+          properties: {
+            required: { bsonType: "bool" },
+            provider: { bsonType: "string", minLength: 1 },
+            contact: {
+              bsonType: "object",
+              required: ["name", "email"],
+              properties: {
+                name: { bsonType: "string", minLength: 1 },
+                email: { bsonType: "string", minLength: 1 },
+                phone: { bsonType: ["string", "null"] },
+              },
+            },
+            notes: {
+              bsonType: "array",
+              items: { bsonType: "string" },
+            },
+          },
+        },
+        reservation: {
+          bsonType: "object",
+          required: ["send_to_email", "catering_send_to_email"],
+          properties: {
+            send_to_email: { bsonType: "string", minLength: 1 },
+            catering_send_to_email: { bsonType: "string", minLength: 1 },
+            approval_date: { bsonType: ["string", "null"] },
+            approved_by: { bsonType: ["string", "null"] },
+          },
+        },
+        reservation_notes: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
+        publication_options: {
+          bsonType: "array",
+          items: { bsonType: "string" },
+        },
       },
     },
   },

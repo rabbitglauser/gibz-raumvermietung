@@ -19,7 +19,7 @@ class RoomDAO:
 
     async def list_all(self) -> list[dict]:
         items: list[dict] = []
-        cursor = self.collection.find().sort("room_id", 1)
+        cursor = self.collection.find().sort("sort_order", 1)
         async for item in cursor:
             items.append(item)
         return items

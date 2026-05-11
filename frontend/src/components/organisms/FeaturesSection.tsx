@@ -12,21 +12,21 @@ function CheckIcon() {
   );
 }
 
-const features = [
-  "Beamer (4K Laser-Projektor)",
-  "Funk-Mikrofon & Soundsystem",
-  "High-Speed WLAN (GIBZ-Guest)",
-  "Whiteboard & Flipchart",
-  "Kaffeemaschine im Vorraum",
-];
+interface FeaturesSectionProps {
+  title?: string;
+  items: string[];
+}
 
-export function FeaturesSection() {
+export function FeaturesSection({
+  title = "Ausstattung",
+  items,
+}: FeaturesSectionProps) {
   return (
     <section>
-      <h2 className="text-[20px] font-bold text-[#003b73]">Ausstattung</h2>
+      <h2 className="text-[20px] font-bold text-[#003b73]">{title}</h2>
       <div className="mt-2 h-px bg-[#d6dde5]" />
       <ul className="mt-4 space-y-3">
-        {features.map((item) => (
+        {items.map((item) => (
           <li key={item} className="flex items-center gap-3 text-[14px] text-[#003b73]">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center bg-[#eef4fa] text-[#00539b]">
               <CheckIcon />

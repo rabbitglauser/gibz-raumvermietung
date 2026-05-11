@@ -16,10 +16,10 @@ from .enums import (
 # room-specific branches in handlers, services, or DAOs.
 ROOM_RULES = {
     RoomId.seminarraum_5_003_004: {
-        "capacity": 36,
+        "capacity": 100,
         "seating_types": {
             SeatingType.seminar,
-            SeatingType.block,
+            SeatingType.theater,
             SeatingType.u_shape,
             SeatingType.exam,
         },
@@ -29,15 +29,16 @@ ROOM_RULES = {
             EquipmentType.pinboard,
             EquipmentType.visualizer,
             EquipmentType.whiteboard,
+            EquipmentType.lectern,
         },
-        "microphone": False,
+        "microphone": True,
         "technical_support": False,
     },
     RoomId.seminarraum_2_112: {
-        "capacity": 24,
+        "capacity": 50,
         "seating_types": {
             SeatingType.seminar,
-            SeatingType.block,
+            SeatingType.theater,
             SeatingType.u_shape,
             SeatingType.exam,
         },
@@ -46,24 +47,22 @@ ROOM_RULES = {
             EquipmentType.flipchart,
             EquipmentType.pinboard,
             EquipmentType.visualizer,
-            EquipmentType.whiteboard,
         },
         "microphone": False,
         "technical_support": False,
     },
     RoomId.aula_1_005: {
-        "capacity": 250,
+        "capacity": 330,
         "seating_types": {
             SeatingType.theater,
-            SeatingType.banquet,
+            SeatingType.seminar,
             SeatingType.exam,
-            SeatingType.block,
+            SeatingType.u_shape,
         },
         "equipment": {
             EquipmentType.projector,
             EquipmentType.flipchart,
             EquipmentType.pinboard,
-            EquipmentType.whiteboard,
             EquipmentType.laptop,
             EquipmentType.lectern,
             EquipmentType.stage,

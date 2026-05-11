@@ -12,13 +12,30 @@ function SeatIcon() {
   );
 }
 
-const seating = [
-  { label: "Theater", count: "30 Plätze" },
-  { label: "Seminar", count: "24 Plätze" },
-  { label: "Block", count: "16 Plätze" },
-];
+interface SeatingOption {
+  label: string;
+  max_people?: number | null;
+  max_tables?: number | null;
+  recommended_tables?: number | null;
+  table_size?: string | null;
+  max_chairs_per_table?: number | null;
+  notes: string[];
+}
 
-export function SeatingSection() {
+function formatSeatingCount(row: SeatingOption) {
+  if (row.max_people) {
+    return `max. ${row.max_people} Personen`;
+  }
+
+  if (row.max_tables) {
+    const suffix = row.table_size ? ` à ${row.table_size}` : "";
+    return `max. ${row.max_tables} Tische${suffix}`;
+  }
+
+  return "Details auf Anfrage";
+}
+
+export function SeatingSection({ seating }: { seating: SeatingOption[] }) {
   return (
     <section>
       <h2 className="text-[20px] font-bold text-[#003b73]">Bestuhlung</h2>
@@ -35,7 +52,9 @@ export function SeatingSection() {
               </span>
               {row.label}
             </span>
-            <span className="text-[13px] text-[#5f6872]">{row.count}</span>
+            <span className="text-right text-[13px] text-[#5f6872]">
+              {formatSeatingCount(row)}
+            </span>
           </li>
         ))}
       </ul>

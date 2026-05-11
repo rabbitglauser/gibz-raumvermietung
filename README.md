@@ -32,6 +32,8 @@ The project replaces the PDF-based room reservation workflow with an API-backed 
 - Docker Compose setup for MongoDB, backend, and frontend.
 - FastAPI backend with OpenAPI/Swagger documentation.
 - MongoDB persistence for reservation documents.
+- MongoDB-seeded room catalogue for the three real GIBZ rental rooms.
+- Room catalogue and room detail pages for Aula 1.005, Seminarraum 2.112, and Seminarraum 5.003/004.
 - Structured `POST /reservations` endpoint with nested request models.
 - Typed `GET /reservations` response.
 - Reservation validation for:
@@ -240,7 +242,6 @@ The original reservation PDFs and room setup documents are also stored under `do
 
 The following features are planned but not complete yet:
 
-- Full room catalogue UI.
 - Customer edit links and edit deadlines.
 - Staff dashboard with authentication, filters, and CRUD management.
 - Automatic reminders for missing catering/setup/material details.

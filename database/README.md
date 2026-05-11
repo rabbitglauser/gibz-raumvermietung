@@ -3,7 +3,7 @@
 Self-contained MongoDB stack for local development. Spins up MongoDB 7 plus a
 Mongo Express web UI, creates the `rooms` and `reservations` collections with
 JSON Schema validators, builds the indexes the backend query plan relies on,
-and seeds the three rooms used by the FastAPI app.
+and seeds the three real GIBZ rooms used by the FastAPI app.
 
 ## Layout
 
@@ -14,9 +14,9 @@ database/                    mounted at/
 ├── init/                      mounted at /docker-entrypoint-initdb.d
 │   ├── 01-collections.js      collections + JSON Schema validators
 │   ├── 02-indexes.js          indexes (room+date+status, created_at, email)
-│   └── 03-seed.js             imports seeds/rooms.json on first start
+│   └── 03-seed.js             syncs seeds/rooms.json on first start
 └── seeds/
-    └── rooms.json             3 rooms matching ROOM_RULES in the backend
+    └── rooms.json             Aula 1.005, Seminarraum 2.112, Seminarraum 5.003/004
 ```
 
 ## Quick start
@@ -37,8 +37,9 @@ host-side backend, use `mongodb://localhost:27017`.
 
 ## Re-running the init scripts
 
-Scripts in `init/` run **only on first start** with an empty `/data/db`. To
-re-seed from scratch:
+Scripts in `init/` run **only on first start** with an empty `/data/db`. The
+room seed script upserts the canonical room documents and removes stale room
+catalogue entries when it runs. To re-run it in Docker from scratch:
 
 ```bash
 docker compose down -v        # drops the mongodb-data volume
