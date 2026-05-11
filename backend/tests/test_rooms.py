@@ -1,4 +1,6 @@
+import json
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -18,32 +20,11 @@ from app.routers.rooms import router as rooms_router  # noqa: E402
 from .mocks import MockRoomsCollection  # noqa: E402
 
 
-SEED_ROOMS = [
-    {
-        "room_id": "seminarraum-5-003-004",
-        "capacity": 36,
-        "seating_types": ["seminar", "block", "u_shape", "exam"],
-        "equipment": ["projector", "flipchart", "pinboard", "visualizer", "whiteboard"],
-        "microphone": False,
-        "technical_support": False,
-    },
-    {
-        "room_id": "aula-1-005",
-        "capacity": 250,
-        "seating_types": ["theater", "banquet", "exam", "block"],
-        "equipment": [
-            "projector",
-            "flipchart",
-            "pinboard",
-            "whiteboard",
-            "laptop",
-            "lectern",
-            "stage",
-        ],
-        "microphone": True,
-        "technical_support": True,
-    },
-]
+SEED_ROOMS = json.loads(
+    (Path(__file__).resolve().parents[2] / "database" / "seeds" / "rooms.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 app = FastAPI()
@@ -71,9 +52,18 @@ def test_list_rooms_returns_seeded_rooms(client):
     assert response.status_code == 200
     body = response.json()
     assert "items" in body
-    assert len(body["items"]) == 2
+    assert len(body["items"]) == 3
     room_ids = {item["room_id"] for item in body["items"]}
-    assert room_ids == {"seminarraum-5-003-004", "aula-1-005"}
+    assert room_ids == {
+        "aula-1-005",
+        "seminarraum-2-112",
+        "seminarraum-5-003-004",
+    }
+    assert [item["room_id"] for item in body["items"]] == [
+        "aula-1-005",
+        "seminarraum-2-112",
+        "seminarraum-5-003-004",
+    ]
 
 
 def test_get_room_by_id_returns_room(client):
@@ -82,12 +72,15 @@ def test_get_room_by_id_returns_room(client):
     assert response.status_code == 200
     body = response.json()
     assert body["room_id"] == "aula-1-005"
-    assert body["capacity"] == 250
+    assert body["name"] == "Aula 1.005"
+    assert body["capacity"] == 330
+    assert body["area_m2"] == 415
     assert body["microphone"] is True
     assert "stage" in body["equipment"]
+    assert body["pricing"][0]["full_day_chf"] == 1420
 
 
 def test_get_room_by_id_returns_404_for_missing(client):
-    response = client.get("/rooms/seminarraum-2-112")
+    response = client.get("/rooms/unknown-room")
 
     assert response.status_code == 404

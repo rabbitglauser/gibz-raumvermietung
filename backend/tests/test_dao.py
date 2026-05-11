@@ -6,7 +6,9 @@ pytest-asyncio (which is not in requirements-dev).
 """
 
 import asyncio
+import json
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -28,6 +30,13 @@ from app.services.reservation_service import (  # noqa: E402
 from app.services.room_service import RoomService  # noqa: E402
 
 from .mocks import MockReservationsCollection, MockRoomsCollection  # noqa: E402
+
+
+SEED_ROOMS = json.loads(
+    (Path(__file__).resolve().parents[2] / "database" / "seeds" / "rooms.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 def _payload(**overrides) -> ReservationCreate:
@@ -134,23 +143,13 @@ def test_service_allows_adjacent_reservation():
 
 
 def test_room_dao_get_by_room_id():
-    collection = MockRoomsCollection(
-        seed=[
-            {
-                "room_id": "seminarraum-2-112",
-                "capacity": 24,
-                "seating_types": ["seminar"],
-                "equipment": ["projector"],
-                "microphone": False,
-                "technical_support": False,
-            }
-        ]
-    )
+    collection = MockRoomsCollection(seed=SEED_ROOMS)
     service = RoomService(RoomDAO(SimpleNamespace(rooms=collection)))
 
     room = asyncio.run(service.get_by_room_id("seminarraum-2-112"))
     assert room is not None
-    assert room["capacity"] == 24
+    assert room["capacity"] == 50
+    assert room["area_m2"] == 108
 
-    missing = asyncio.run(service.get_by_room_id("aula-1-005"))
+    missing = asyncio.run(service.get_by_room_id("unknown-room"))
     assert missing is None

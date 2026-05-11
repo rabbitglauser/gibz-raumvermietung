@@ -2,7 +2,7 @@
 
 ## 3.1 Additional Functions
 
-The current implementation is an early technical baseline for the room rental application. It already includes a Dockerized full-stack structure and a reservation API, but most user-facing additional functions from the assignment are still planned.
+The current implementation is a technical baseline for the room rental application. It includes a Dockerized full-stack structure, a reservation API, and a room catalogue based on the real GIBZ room data.
 
 Implemented:
 
@@ -11,19 +11,19 @@ Implemented:
 - Reservation creation via `POST /reservations` with the core fields from the reservation form.
 - Reservation listing via `GET /reservations`.
 - MongoDB persistence for reservation documents.
+- Room catalogue via `GET /rooms`, seeded in MongoDB from the real GIBZ room data.
+- Public room catalogue and detail pages for Aula 1.005, Seminarraum 2.112, and Seminarraum 5.003/004.
 - Frontend health display that verifies the backend connection.
 
 Planned but not yet implemented:
 
-- Public room catalogue with room details, images, prices, and setup variants.
 - Customer edit links for completing catering, setup, and material details later.
 - Configurable edit deadlines before the event date.
 - Automatic reminders for incomplete reservation details.
 - Staff dashboard for secretariat, facility management, and Restaurant Treff.
 - Staff authentication, roles, filters, and full CRUD reservation management.
-- DAO layer to separate database access from API route handlers.
 
-The current project therefore demonstrates the technical foundation, but not yet the complete functional scope required for the final submission.
+The current project therefore demonstrates the technical foundation and the public room catalogue, but not yet the complete functional scope required for the final submission.
 
 ## 3.2 Architecture Visualization
 
@@ -46,15 +46,15 @@ Current flow:
 1. The browser opens the Next.js frontend at `http://localhost:3000`.
 2. The frontend calls the backend health endpoint through `src/lib/api.ts`.
 3. The FastAPI backend exposes REST endpoints and connects to MongoDB.
-4. Reservation documents are stored in the `reservations` collection.
-5. MongoDB data is persisted in the Docker named volume `mongodb_data`.
+4. Room documents are stored in the `rooms` collection.
+5. Reservation documents are stored in the `reservations` collection.
+6. MongoDB data is persisted in the Docker named volume `mongodb_data`.
 
 Planned final architecture:
 
-- Add room, staff, authentication, and configuration collections.
-- Add DAO classes so route handlers no longer access MongoDB directly.
+- Add staff, authentication, and configuration collections.
 - Add service-layer logic for conflict detection, edit deadlines, reminders, and staff filters.
-- Add frontend routes for room catalogue, reservation editing, and staff dashboard.
+- Add frontend routes for reservation editing and staff dashboard.
 
 ## 3.3 Technology Stack
 

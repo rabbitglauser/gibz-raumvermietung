@@ -5,9 +5,10 @@ interface RoomCardProps {
   description: string;
   capacity: string;
   price: string;
-  imageUrl: string;
-  imageAlt?: string;
-  href?: string;
+  location: string;
+  area: string;
+  href: string;
+  imageUrl?: string | null;
 }
 
 function PeopleIcon() {
@@ -36,19 +37,31 @@ export function RoomCard({
   description,
   capacity,
   price,
+  location,
+  area,
+  href,
   imageUrl,
-  imageAlt,
-  href = "/raeume/seminarraum-s104",
 }: RoomCardProps) {
   return (
-    <article className="flex flex-col border border-[#d6dde5] bg-white">
-      <div className="aspect-[16/9] w-full overflow-hidden bg-[#eef2f6]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageUrl}
-          alt={imageAlt ?? title}
-          className="h-full w-full object-cover"
-        />
+    <article className="flex h-full flex-col overflow-hidden border border-[#d6dde5] bg-white">
+      <div className="h-56 w-full overflow-hidden bg-[#eef4fa]">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col justify-between p-5">
+            <div className="text-[10px] font-semibold tracking-[0.12em] text-[#5f6872]">
+              GIBZ RAUM
+            </div>
+            <div className="text-[12px] font-semibold tracking-[0.08em] text-[#00539b]">
+              {location}
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-[17px] font-semibold text-[#003b73]">{title}</h3>
@@ -56,20 +69,26 @@ export function RoomCard({
           {description}
         </p>
 
-        <div className="mt-4 flex items-center justify-between border-t border-[#eceff3] pt-3 text-[13px]">
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#eceff3] pt-3 text-[13px]">
           <span className="flex items-center text-[#5f6872]">
             <PeopleIcon />
             {capacity}
           </span>
-          <span className="font-semibold text-[#00539b]">{price}</span>
+          <span className="text-right text-[#5f6872]">{area}</span>
         </div>
 
-        <Link
-          href={href}
-          className="mt-4 border border-[#003b73] py-2 text-center text-[12px] font-semibold tracking-[0.08em] text-[#003b73] hover:bg-[#003b73] hover:text-white"
-        >
-          DETAILS ANSEHEN
-        </Link>
+        <div className="mt-2 text-[13px] font-semibold text-[#00539b]">
+          {price}
+        </div>
+
+        <div className="mt-auto pt-4">
+          <Link
+            href={href}
+            className="block border border-[#003b73] py-2 text-center text-[12px] font-semibold tracking-[0.08em] text-[#003b73] hover:bg-[#003b73] hover:text-white"
+          >
+            DETAILS ANSEHEN
+          </Link>
+        </div>
       </div>
     </article>
   );

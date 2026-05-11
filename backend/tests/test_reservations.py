@@ -258,7 +258,7 @@ def test_list_reservations_returns_typed_items(client):
 def test_room_specific_capacity_validation(client):
     payload = valid_payload()
     payload["room"] = "seminarraum-2-112"
-    payload["attendee_count"] = 25
+    payload["attendee_count"] = 51
     payload["setup"]["seating_type"] = "seminar"
     payload["setup"]["equipment"] = [{"type": "projector", "quantity": 1}]
     payload["setup"]["microphone_needed"] = False

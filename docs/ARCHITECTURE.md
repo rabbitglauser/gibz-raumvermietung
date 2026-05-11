@@ -122,6 +122,7 @@ Implemented behavior:
 - Renders a simple Room Rental starter page.
 - Calls `getHealth()` from `frontend/src/lib/api.ts`.
 - Displays the backend health response as JSON.
+- Renders room catalogue and room detail pages for the real GIBZ room seed.
 
 The frontend API base URL is resolved in this order:
 
@@ -129,23 +130,23 @@ The frontend API base URL is resolved in this order:
 2. `NEXT_PUBLIC_API_BASE_URL`
 3. `http://localhost:8000`
 
-The current frontend does not yet include room catalogue pages, reservation forms, customer edit pages, or a staff dashboard.
+The current frontend includes the room catalogue pages. Reservation forms, customer edit pages, and a staff dashboard are still planned.
 
 ## Database Architecture
 
 MongoDB is used as the NoSQL database. In Docker Compose, it stores data in the named volume `mongodb_data`.
 
-Implemented collection:
+Implemented collections:
 
 | Collection | Purpose |
 |---|---|
+| `rooms` | Real GIBZ room catalogue with capacity, equipment, prices, setup variants, contacts, and catering notes |
 | `reservations` | Stores created reservation documents |
 
 Planned collections:
 
 | Collection | Purpose |
 |---|---|
-| `rooms` | Room definitions, capacity, equipment, prices, images, and setup variants |
 | `staff` | Staff users and roles |
 | `config` | Configurable values such as reminder and edit-deadline days |
 

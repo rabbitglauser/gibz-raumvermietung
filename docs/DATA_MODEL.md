@@ -31,15 +31,38 @@ Static catalogue of bookable rooms. Read-mostly.
 {
   "_id": "<ObjectId>",
   "room_id": "aula-1-005",
-  "capacity": 250,
-  "seating_types": ["theater", "banquet", "exam", "block"],
-  "equipment": ["projector", "flipchart", "pinboard", "whiteboard", "laptop", "lectern", "stage"],
+  "sort_order": 1,
+  "name": "Aula 1.005",
+  "room_number": "1.005",
+  "building": "Trakt 1",
+  "floor": "Erdgeschoss",
+  "area_m2": 415,
+  "location": "Trakt 1, Erdgeschoss",
+  "description": "Aula für Veranstaltungen, Konzerte, Seminare und Prüfungen mit fix installierter Bühne und AV-Technik.",
+  "capacity": 330,
+  "seating_types": ["theater", "seminar", "u_shape", "exam"],
+  "equipment": ["projector", "flipchart", "pinboard", "laptop", "lectern", "stage"],
   "microphone": true,
-  "technical_support": true
+  "technical_support": true,
+  "inspection_contact": { "name": "Hausdienst", "email": "hausdienst.gibz@zg.ch", "phone": "+41 41 594 77 60" },
+  "fixed_setup": ["Bühne (8 m x 3 m, 17 cm hoch)", "Leinwand (2.5 m x 4.5 m)"],
+  "seating_options": [
+    { "type": "theater", "label": "Konzertbestuhlung", "max_people": 330 },
+    { "type": "seminar", "label": "Seminarbestuhlung", "max_tables": 61, "table_size": "80 x 180 cm" }
+  ],
+  "pricing": [
+    { "organizer_type": "external_customer", "label": "Externe Kundin / Externer Kunde", "half_day_chf": 980, "full_day_chf": 1420 }
+  ],
+  "catering": { "required": true, "provider": "Restaurant Treff" },
+  "reservation": { "send_to_email": "sekretariat.gibz@zg.ch", "catering_send_to_email": "treff.gibz@zfv.ch" }
 }
 ```
 
-Indexes: `room_id` unique.
+The full seed contains the real room catalogue for Aula 1.005,
+Seminarraum 2.112, and Seminarraum 5.003/004, including seating variants,
+additional material, microphones, catering notes, and reservation contacts.
+
+Indexes: `room_id` unique, `sort_order` ascending.
 
 ### `reservations`
 

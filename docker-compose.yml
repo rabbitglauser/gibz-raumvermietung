@@ -4,8 +4,12 @@ services:
     container_name: room-rental-mongodb
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: room_rental
     volumes:
       - mongodb_data:/data/db
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/seeds:/seeds:ro
 
   backend:
     build:
@@ -20,7 +24,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: room-rental-frontend
     environment:
       API_BASE_URL: http://backend:8000

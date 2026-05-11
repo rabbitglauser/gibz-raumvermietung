@@ -2,17 +2,23 @@
 
 ## Current Status
 
-The repository contains focused backend pytest tests for reservation creation and validation. Manual testing is still used for Docker Compose startup and MongoDB persistence.
+The repository contains focused backend pytest tests for reservation creation,
+room catalogue responses, and validation. Manual testing is still used for
+Docker Compose startup and MongoDB persistence.
 
 The current implemented application surface is small:
 
 - Frontend starter page with backend health display.
+- Room catalogue and room detail pages for the real GIBZ room seed.
 - Backend health endpoints.
+- Room catalogue endpoint.
 - Reservation creation endpoint with core reservation form fields.
 - Reservation listing endpoint.
 - MongoDB persistence through Docker Compose.
 
-Planned features such as room catalogue, staff login, dashboard filters, edit deadlines, reminders, and DAO-level tests are not yet implemented and therefore cannot be tested as working features yet.
+Planned features such as staff login, dashboard filters, edit deadlines, and
+reminders are not yet implemented and therefore cannot be tested as working
+features yet.
 
 ## Automated Backend Tests
 
