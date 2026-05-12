@@ -10,6 +10,7 @@ import {
 import { InfoCard } from "@/components/molecules";
 import type { AdditionalMaterial, Room } from "@/lib/api";
 import { getStaticRoom, getStaticRooms } from "@/lib/rooms";
+import { assetPath } from "@/lib/utils";
 
 function PeopleIcon() {
   return (
@@ -130,7 +131,7 @@ export default async function RoomDetailPage({
                   {room.image_path ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={room.image_path}
+                      src={assetPath(room.image_path)}
                       alt={room.name}
                       className="h-full w-full object-cover"
                     />

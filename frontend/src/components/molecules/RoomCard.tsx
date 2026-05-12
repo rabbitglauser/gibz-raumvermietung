@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { assetPath } from "@/lib/utils";
+
 interface RoomCardProps {
   title: string;
   description: string;
@@ -48,7 +50,7 @@ export function RoomCard({
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={imageUrl}
+            src={assetPath(imageUrl)}
             alt=""
             className="h-full w-full object-cover"
           />
