@@ -197,6 +197,15 @@ export function StepExtras({ form, publicationOptions }: StepExtrasProps) {
           <span>
             Ich akzeptiere die Reservationsbedingungen und bestätige, dass die
             Angaben korrekt sind.
+            <a
+              href="/agb"
+              target="_blank"
+              rel="noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="ml-1 font-semibold underline underline-offset-2 hover:text-[#00539b]"
+            >
+              AGB lesen
+            </a>
           </span>
         </label>
         {errors.terms_accepted && (
