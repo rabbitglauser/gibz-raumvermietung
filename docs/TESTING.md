@@ -207,6 +207,31 @@ To intentionally delete all database data:
 docker compose down -v
 ```
 
+## Backup and Restore Test
+
+Use only on a development or test database because the restore step replaces the
+current `room_rental` database with the backup content.
+
+1. Start MongoDB:
+
+   ```powershell
+   docker compose up mongodb -d
+   ```
+
+2. Run the verification script:
+
+   ```powershell
+   .\scripts\verify-mongodb-restore.ps1 -ConfirmDataLoss
+   ```
+
+3. Expected behavior:
+
+   - A sample verification document is inserted.
+   - A `.archive.gz` backup is created in `backups/`.
+   - The sample document is deleted.
+   - The backup is restored.
+   - The script prints `Restore verification succeeded`.
+
 ## Planned Automated Tests
 
 The next implementation step should expand automated tests for the rest of the current API before adding larger features.

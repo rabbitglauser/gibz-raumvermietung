@@ -152,21 +152,30 @@ curl http://localhost:8000/reservations
 
 ## MongoDB Backup and Restore
 
-Create a backup:
+Detailed support instructions are maintained in
+[`docs/BACKUP_RESTORE.md`](BACKUP_RESTORE.md).
 
-```bash
-docker exec room-rental-mongodb mongodump --db room_rental --archive=/tmp/room_rental_backup.archive
-docker cp room-rental-mongodb:/tmp/room_rental_backup.archive ./backups/
+Create a backup from the repository root:
+
+```powershell
+.\scripts\backup-mongodb.ps1
 ```
 
-Restore a backup:
+Restore a selected backup:
 
-```bash
-docker cp ./backups/room_rental_backup.archive room-rental-mongodb:/tmp/
-docker exec room-rental-mongodb mongorestore --db room_rental --archive=/tmp/room_rental_backup.archive --drop
+```powershell
+.\scripts\restore-mongodb.ps1 -ArchivePath .\backups\room_rental-YYYYMMDD-HHMMSS.archive.gz -ConfirmDataLoss
 ```
 
-For the current school-project stage, manual backups before demos or larger changes are sufficient. A production deployment should add scheduled backups, credentials, and secure secret handling.
+Verify the backup/restore process with sample data on a development database:
+
+```powershell
+.\scripts\verify-mongodb-restore.ps1 -ConfirmDataLoss
+```
+
+For the current school-project stage, manual backups before demos or larger
+changes are sufficient. A production deployment should add scheduled backups,
+credentials, off-site storage, and secure secret handling.
 
 ## Troubleshooting
 

@@ -232,6 +232,7 @@ Additional project documentation is available under `docs/`:
 - `docs/ARCHITECTURE.md`
 - `docs/TESTING.md`
 - `docs/DEPLOYMENT.md`
+- `docs/BACKUP_RESTORE.md`
 - `docs/PRD.md`
 - `docs/SCOPE.md`
 - `docs/DECISION.md`

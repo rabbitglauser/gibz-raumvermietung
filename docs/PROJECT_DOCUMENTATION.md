@@ -14,6 +14,7 @@ Implemented:
 - Room catalogue via `GET /rooms`, seeded in MongoDB from the real GIBZ room data.
 - Public room catalogue and detail pages for Aula 1.005, Seminarraum 2.112, and Seminarraum 5.003/004.
 - Frontend health display that verifies the backend connection.
+- MongoDB backup and restore scripts with support documentation.
 
 Planned but not yet implemented:
 
@@ -176,18 +177,24 @@ The Docker Compose file sets `API_BASE_URL` to `http://backend:8000` and `NEXT_P
 
 ### Backup and restore
 
+The complete support runbook is documented in `docs/BACKUP_RESTORE.md`.
+
 Create a MongoDB backup:
 
-```bash
-docker exec room-rental-mongodb mongodump --db room_rental --archive=/tmp/room_rental_backup.archive
-docker cp room-rental-mongodb:/tmp/room_rental_backup.archive ./backups/
+```powershell
+.\scripts\backup-mongodb.ps1
 ```
 
 Restore a MongoDB backup:
 
-```bash
-docker cp ./backups/room_rental_backup.archive room-rental-mongodb:/tmp/
-docker exec room-rental-mongodb mongorestore --db room_rental --archive=/tmp/room_rental_backup.archive --drop
+```powershell
+.\scripts\restore-mongodb.ps1 -ArchivePath .\backups\room_rental-YYYYMMDD-HHMMSS.archive.gz -ConfirmDataLoss
+```
+
+Verify restore with sample data on a development database:
+
+```powershell
+.\scripts\verify-mongodb-restore.ps1 -ConfirmDataLoss
 ```
 
 ## 3.6 Conclusion
