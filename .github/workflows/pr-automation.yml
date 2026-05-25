@@ -1,0 +1,221 @@
+name: PR Automation
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, closed, converted_to_draft]
+
+# --------------------------------------------------------------------------
+# GitHub Project V2 node IDs — REPLACE the REPLACE_ME_* values below with the
+# real IDs from your own Project (see docs/github-setup.md).
+# --------------------------------------------------------------------------
+env:
+  PROJECT_ID: 'REPLACE_ME_PROJECT_ID'
+  STATUS_FIELD_ID: 'REPLACE_ME_STATUS_FIELD_ID'
+  STATUS_BACKLOG: 'REPLACE_ME_STATUS_BACKLOG'
+  STATUS_TODO: 'REPLACE_ME_STATUS_TODO'
+  STATUS_IN_PROGRESS: 'REPLACE_ME_STATUS_IN_PROGRESS'
+  STATUS_TESTING: 'REPLACE_ME_STATUS_TESTING'
+  STATUS_DONE: 'REPLACE_ME_STATUS_DONE'
+
+jobs:
+  update-linked-issues:
+    name: Update Linked Issues
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Process linked issues
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const action = context.payload.action;
+            const body = pr.body || '';
+            
+            // Extract linked issue numbers from PR body
+            // Matches: Closes #123, Fixes #123, Resolves #123, etc.
+            const issueRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+            const linkedIssues = [];
+            let match;
+            while ((match = issueRegex.exec(body)) !== null) {
+              linkedIssues.push(parseInt(match[1]));
+            }
+            
+            // Also check for simple "#123" references in title
+            const titleRegex = /#(\d+)/g;
+            while ((match = titleRegex.exec(pr.title)) !== null) {
+              const num = parseInt(match[1]);
+              if (!linkedIssues.includes(num)) {
+                linkedIssues.push(num);
+              }
+            }
+            
+            if (linkedIssues.length === 0) {
+              console.log('No linked issues found in PR');
+              return;
+            }
+            
+            console.log('Found linked issues:', linkedIssues);
+            
+            // Determine target status based on PR action
+            let targetStatus = null;
+            let shouldClose = false;
+            
+            if (action === 'opened') {
+              targetStatus = '${{ env.STATUS_TESTING }}';
+              console.log('PR opened - moving to Testing');
+            } else if (action === 'converted_to_draft') {
+              targetStatus = '${{ env.STATUS_TODO }}';
+              console.log('PR converted to draft - moving to To Do');
+            } else if (action === 'ready_for_review') {
+              targetStatus = '${{ env.STATUS_TESTING }}';
+              console.log('PR ready for review - moving to Testing');
+            } else if (action === 'closed' && pr.merged) {
+              targetStatus = '${{ env.STATUS_DONE }}';
+              shouldClose = true;
+              console.log('PR merged - moving to Done and closing issues');
+            } else if (action === 'closed' && !pr.merged) {
+              // PR closed without merge - move back to Backlog
+              targetStatus = '${{ env.STATUS_BACKLOG }}';
+              console.log('PR closed without merge - moving back to Backlog');
+            }
+            
+            if (!targetStatus) {
+              console.log('No status change needed for action:', action);
+              return;
+            }
+            
+            // Process each linked issue
+            for (const issueNum of linkedIssues) {
+              try {
+                // Get issue node ID
+                const issueData = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNum
+                });
+                
+                const issueNodeId = issueData.data.node_id;
+                console.log('Processing issue #' + issueNum + ' (node: ' + issueNodeId + ')');
+                
+                // Find project item
+                const query = `
+                  query($issueId: ID!) {
+                    node(id: $issueId) {
+                      ... on Issue {
+                        projectItems(first: 10) {
+                          nodes {
+                            id
+                            project { id }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `;
+                
+                const result = await github.graphql(query, { issueId: issueNodeId });
+                const items = result.node.projectItems.nodes;
+                const projectItem = items.find(i => i.project.id === '${{ env.PROJECT_ID }}');
+                
+                if (projectItem) {
+                  // Update status
+                  const mutation = `
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $value }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  `;
+                  
+                  await github.graphql(mutation, {
+                    projectId: '${{ env.PROJECT_ID }}',
+                    itemId: projectItem.id,
+                    fieldId: '${{ env.STATUS_FIELD_ID }}',
+                    value: targetStatus
+                  });
+                  console.log('Updated project status for issue #' + issueNum);
+                } else {
+                  console.log('Issue #' + issueNum + ' not found in project');
+                }
+                
+                // Close issue if PR was merged
+                if (shouldClose && issueData.data.state === 'open') {
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNum,
+                    state: 'closed',
+                    state_reason: 'completed'
+                  });
+                  
+                  // Add comment
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNum,
+                    body: 'Closed by #' + pr.number
+                  });
+                  console.log('Closed issue #' + issueNum);
+                }
+              } catch (error) {
+                console.error('Error processing issue #' + issueNum + ':', error.message);
+              }
+            }
+
+  add-pr-to-project:
+    name: Add PR to Project
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' && github.actor != 'dependabot[bot]'
+    steps:
+      - name: Add PR to project board
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            
+            const mutation = `
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                  item { id }
+                }
+              }
+            `;
+            
+            try {
+              const result = await github.graphql(mutation, {
+                projectId: '${{ env.PROJECT_ID }}',
+                contentId: pr.node_id
+              });
+              console.log('Added PR #' + pr.number + ' to project');
+              
+              // Set status to Testing
+              const statusMutation = `
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { singleSelectOptionId: $value }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `;
+              
+              await github.graphql(statusMutation, {
+                projectId: '${{ env.PROJECT_ID }}',
+                itemId: result.addProjectV2ItemById.item.id,
+                fieldId: '${{ env.STATUS_FIELD_ID }}',
+                value: '${{ env.STATUS_TESTING }}'
+              });
+              console.log('Set PR status to Testing');
+            } catch (error) {
+              console.error('Failed to add PR to project:', error.message);
+            }

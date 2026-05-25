@@ -1,0 +1,37 @@
+name: Enforce Branch Policy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-source-branch:
+    name: Verify Source Branch
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check if PR is from dev branch
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          TARGET_BRANCH="${{ github.base_ref }}"
+          
+          echo "Source branch: $SOURCE_BRANCH"
+          echo "Target branch: $TARGET_BRANCH"
+          
+          if [[ "$TARGET_BRANCH" == "main" && "$SOURCE_BRANCH" != "dev" ]]; then
+            echo "❌ ERROR: Direct PRs to main are not allowed!"
+            echo ""
+            echo "Branch policy violation:"
+            echo "  - PRs to 'main' must come from 'dev' branch only"
+            echo "  - Your PR is from '$SOURCE_BRANCH'"
+            echo ""
+            echo "Please:"
+            echo "  1. Merge your changes into 'dev' first"
+            echo "  2. Create a PR from 'dev' to 'main'"
+            exit 1
+          fi
+          
+          echo "✅ Branch policy check passed"
+          echo "  - Source: $SOURCE_BRANCH"
+          echo "  - Target: $TARGET_BRANCH"

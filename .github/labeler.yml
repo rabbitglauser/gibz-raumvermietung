@@ -1,35 +1,35 @@
 # .github/labeler.yml
 
-Backend:
+backend:
   - changed-files:
       - any-glob-to-any-file:
           - 'backend/**'
 
-Frontend:
+frontend:
   - changed-files:
       - any-glob-to-any-file:
           - 'frontend/**'
 
-Documentation:
+documentation:
   - changed-files:
       - any-glob-to-any-file:
           - 'docs/**'
           - '**/*.md'
 
-Authentication:
+authentication:
   - changed-files:
       - any-glob-to-any-file:
           - 'backend/**/auth/**'
           - 'frontend/**/auth/**'
 
-Database Design:
+database design:
   - changed-files:
       - any-glob-to-any-file:
           - 'backend/**/db/**'
           - 'backend/**/models/**'
           - 'backend/**/schemas/**'
 
-CI/CD:
+ci/cd:
   - changed-files:
       - any-glob-to-any-file:
           - '.github/workflows/**'
