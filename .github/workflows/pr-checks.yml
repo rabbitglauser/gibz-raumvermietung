@@ -1,0 +1,89 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  conventional-commits:
+    name: Check Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check commit messages
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            const commits = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const conventionalPattern = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?:\s.+/;
+            const invalidCommits = [];
+            
+            for (const commit of commits.data) {
+              const msg = commit.commit.message.split('\n')[0];
+              // Skip merge commits and dependabot
+              if (msg.startsWith('Merge') || commit.author?.login === 'dependabot[bot]') {
+                continue;
+              }
+              if (!conventionalPattern.test(msg)) {
+                invalidCommits.push(msg);
+              }
+            }
+            
+            if (invalidCommits.length > 0) {
+              console.log('Non-conventional commits found:');
+              invalidCommits.forEach(c => console.log('  - ' + c));
+              console.log('\nExpected format: type(scope): description');
+              console.log('Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert');
+              // Don't fail, just warn
+            } else {
+              console.log('All commits follow conventional format');
+            }
+
+  welcome:
+    name: Welcome First-Time Contributors
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Check if first PR
+        id: check
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const author = context.payload.pull_request.user.login;
+            
+            const prs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+            
+            const authorPRs = prs.data.filter(pr => pr.user.login === author);
+            const isFirst = authorPRs.length === 1;
+            
+            core.setOutput('first', isFirst);
+            return isFirst;
+
+      - name: Welcome message
+        if: steps.check.outputs.first == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: 'Welcome to the team! Thanks for your first PR.'
+            });

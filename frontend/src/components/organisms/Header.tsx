@@ -1,100 +1,73 @@
-"use client";
-
-const navItems = ["Grundbildung", "Weiterbildung", "Service", "Über uns"];
-
-function ChevronDown() {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 12 12"
-      fill="none"
-      aria-hidden="true"
-      className="ml-1"
-    >
-      <path
-        d="M2 4l4 4 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M11 11l3 3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export function Header() {
+  const navItems = ["Grundbildung", "Weiterbildung", "Service", "Über uns"];
+
   return (
-    <header className="bg-white">
-      <div className="mx-auto flex max-w-[1150px] items-center justify-between px-4 pt-3 text-[12px] text-[#003b73]">
-        <span className="font-semibold tracking-tight">
-          GIBZ Gewerblich-industrielles Bildungszentrum Zug
-        </span>
-        <div className="flex items-center gap-4">
-          <a href="#" className="hover:underline">
-            Kontakt
-          </a>
-          <a href="#" className="hover:underline">
-            Zug
-          </a>
+    <header className="w-full bg-white text-[#003b71]">
+      <div className="mx-auto max-w-[1180px] px-6 md:px-10">
+        {/* Top line */}
+        <div className="flex items-center justify-between pt-5 text-sm">
+          <p className="font-bold text-black">
+            GIBZ Gewerblich-industrielles Bildungszentrum Zug
+          </p>
+
+          <div className="flex items-center gap-1 text-sm text-[#003b71]">
+            <a href="#" className="hover:underline">
+              ↖ Kontakt
+            </a>
+            <span>|</span>
+            <a href="#" className="hover:underline">
+              ↖ iZug
+            </a>
+          </div>
+        </div>
+
+        {/* Navigation row */}
+        <div className="flex flex-col gap-6 py-9 lg:flex-row lg:items-center lg:justify-between">
+          <nav className="flex flex-wrap items-center gap-x-9 gap-y-4 text-2xl font-normal">
+            {navItems.map((item) => (
+              <a
+                key={item}
+                href="#"
+                className="flex items-center gap-1 whitespace-nowrap text-[#003b71]"
+              >
+                {item}
+                <span className="text-xl">⌄</span>
+              </a>
+            ))}
+          </nav>
+
+          <form className="flex h-[46px] w-full max-w-[330px] shadow-[0_0_6px_rgba(0,0,0,0.45)]">
+            <input
+              type="text"
+              placeholder="GIBZ durchsuchen"
+              className="h-full flex-1 border border-slate-300 bg-white px-4 text-xl text-slate-700 outline-none placeholder:text-slate-400"
+            />
+
+            <button
+              type="submit"
+              className="flex h-full w-[56px] items-center justify-center bg-white text-[#003b71]"
+              aria-label="Suchen"
+            >
+              <svg
+                width="25"
+                height="25"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+            </button>
+          </form>
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1150px] flex-wrap items-center justify-between gap-3 px-4 py-4">
-        <nav className="flex flex-wrap items-center gap-6 text-[14px] font-semibold text-[#003b73]">
-          {navItems.map((label) => (
-            <a
-              key={label}
-              href="#"
-              className="flex items-center hover:text-[#00539b]"
-            >
-              {label}
-              <ChevronDown />
-            </a>
-          ))}
-        </nav>
-
-        <form
-          role="search"
-          onSubmit={(e) => e.preventDefault()}
-          className="flex h-9 items-stretch border border-[#d6dde5] bg-white"
-        >
-          <input
-            type="search"
-            placeholder="GIBZ durchsuchen"
-            className="w-44 bg-transparent px-3 text-[13px] text-[#003b73] placeholder:text-[#5f6872] focus:outline-none sm:w-56"
-          />
-          <button
-            type="submit"
-            aria-label="Suchen"
-            className="flex w-9 items-center justify-center bg-[#003b73] text-white hover:bg-[#00539b]"
-          >
-            <SearchIcon />
-          </button>
-        </form>
-      </div>
-
-      <div className="h-px bg-[#9bc7df]" />
+      {/* Blue line like mockup */}
+      <div className="mx-auto h-[6px] max-w-[1180px] bg-[#b8ddeb]" />
     </header>
   );
 }

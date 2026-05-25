@@ -1,0 +1,14 @@
+name: Feature
+description: New feature idea
+labels: ["type:feature"]
+assignees:
+  - rabbitglauser
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What do you want?
+      description: Describe the feature
+      placeholder: Tell us your idea...
+    validations:
+      required: true
