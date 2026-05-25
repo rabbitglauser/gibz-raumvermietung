@@ -1,8 +1,9 @@
 const linkColumn = [
-  "Grundbildung",
-  "Weiterbildung",
-  "Informationen",
-  "Ansprechpartner",
+  { label: "Grundbildung", href: "#" },
+  { label: "Weiterbildung", href: "#" },
+  { label: "Informationen", href: "#" },
+  { label: "Ansprechpartner", href: "#" },
+  { label: "AGB Raumreservation", href: "/agb" },
 ];
 
 function FacebookIcon() {
@@ -35,10 +36,10 @@ export function Footer() {
       <div className="mx-auto grid max-w-[1150px] gap-8 px-6 py-10 md:grid-cols-3 md:divide-x md:divide-white/30">
         <div className="md:pr-8">
           <ul className="space-y-2 text-[14px]">
-            {linkColumn.map((label) => (
-              <li key={label}>
-                <a href="#" className="hover:underline">
-                  {label}
+            {linkColumn.map((link) => (
+              <li key={link.label}>
+                <a href={link.href} className="hover:underline">
+                  {link.label}
                 </a>
               </li>
             ))}

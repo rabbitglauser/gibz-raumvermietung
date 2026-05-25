@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { assetPath } from "@/lib/utils";
+
 interface InfoCardProps {
   imageUrl?: string;
   imageAlt?: string;
@@ -21,7 +23,7 @@ export function InfoCard({
         <div className="aspect-[16/9] w-full overflow-hidden bg-[#eef2f6]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={imageUrl}
+            src={assetPath(imageUrl)}
             alt={imageAlt ?? label}
             className="h-full w-full object-cover"
           />
