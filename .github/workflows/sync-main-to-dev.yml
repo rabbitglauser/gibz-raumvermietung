@@ -1,0 +1,57 @@
+# Automatically merge main back into dev after every push to main.
+# This keeps the merge base current so PRs from dev->main only show
+# genuinely new commits instead of the entire branch history.
+#
+# If there are merge conflicts, a PR is created instead of pushing directly.
+
+name: Sync main to dev
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge main into dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout dev
+          git pull origin dev
+
+          BRANCH="auto/sync-main-to-dev-$(date +%Y%m%d-%H%M%S)"
+
+          if git merge origin/main --no-edit; then
+            if git push origin dev 2>/dev/null; then
+              echo "Synced main into dev via direct push"
+            else
+              git checkout -b "$BRANCH"
+              git push origin "$BRANCH"
+              gh pr create --base dev --head "$BRANCH" --title "Sync main into dev" --body "Automatic sync of main into dev." \
+                || echo "::warning::Could not create PR automatically. Merge branch '$BRANCH' into dev manually."
+            fi
+          else
+            git merge --abort
+            git checkout -b "$BRANCH"
+            git merge origin/main --no-edit || true
+            git add -A
+            git commit -m "merge: sync main into dev (conflicts)" --no-verify || true
+            git push origin "$BRANCH"
+            gh pr create --base dev --head "$BRANCH" --title "Sync main into dev (conflicts)" --body "Automatic sync — has merge conflicts that need manual resolution." \
+              || echo "::warning::Could not create PR automatically. Merge branch '$BRANCH' into dev manually."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

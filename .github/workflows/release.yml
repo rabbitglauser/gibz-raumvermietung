@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      # Match version-shaped tags (v1, v1.0, v1.0.0, v1.0.0-rc.1, etc.) and
+      # not arbitrary v-prefixed words like "vacuum" or "version-bump".
+      - 'v[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        uses: actions/github-script@v9
+        env:
+          # Pass values via env (not via `${{ }}` interpolation into the script
+          # body) so a tag or commit message containing backticks, ${...},
+          # or quote sequences cannot break the JS template literal or
+          # inject expressions into the runner.
+          PREV_TAG: ${{ steps.prev_tag.outputs.tag }}
+        with:
+          script: |
+            const prevTag = process.env.PREV_TAG;
+            const currentTag = context.ref.replace('refs/tags/', '');
+
+            let commits;
+            if (prevTag) {
+              const comparison = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: prevTag,
+                head: currentTag
+              });
+              commits = comparison.data.commits;
+            } else {
+              const allCommits = await github.rest.repos.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 50
+              });
+              commits = allCommits.data;
+            }
+
+            const features = [];
+            const fixes = [];
+            const other = [];
+
+            for (const commit of commits) {
+              const msg = commit.commit.message.split('\n')[0];
+              if (msg.startsWith('feat') || msg.toLowerCase().includes('add') || msg.toLowerCase().includes('feature')) {
+                features.push('- ' + msg);
+              } else if (msg.startsWith('fix') || msg.toLowerCase().includes('fix')) {
+                fixes.push('- ' + msg);
+              } else if (!msg.startsWith('Merge') && !msg.includes('dependabot')) {
+                other.push('- ' + msg);
+              }
+            }
+
+            let changelog = '';
+            if (features.length > 0) {
+              changelog += '### Features\n' + features.join('\n') + '\n\n';
+            }
+            if (fixes.length > 0) {
+              changelog += '### Bug Fixes\n' + fixes.join('\n') + '\n\n';
+            }
+            if (other.length > 0) {
+              changelog += '### Other Changes\n' + other.slice(0, 10).join('\n') + '\n';
+            }
+
+            if (!changelog) {
+              changelog = 'No notable changes in this release.';
+            }
+
+            core.setOutput('changelog', changelog);
+            return changelog;
+
+      - name: Create Release
+        uses: actions/github-script@v9
+        env:
+          # Same reason as the changelog step: the body comes from commit
+          # messages, which can contain anything. Reading from process.env
+          # keeps it as a plain string.
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const changelog = process.env.CHANGELOG;
+
+            // Try-create-then-tolerate-conflict is atomic; the previous
+            // get-then-create pattern had a race window where a release
+            // could appear (manual UI creation, retry) between the check
+            // and the create call, taking the workflow down on a benign
+            // already_exists error.
+            try {
+              await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                name: tag,
+                body: changelog,
+                draft: false,
+                prerelease: tag.includes('-')
+              });
+              console.log('Created release: ' + tag);
+            } catch (e) {
+              const errors = e.response?.data?.errors;
+              const alreadyExists =
+                e.status === 422 &&
+                Array.isArray(errors) &&
+                errors.some((err) => err.code === 'already_exists' && err.field === 'tag_name');
+              if (alreadyExists) {
+                console.log('Release already exists for tag: ' + tag + ', skipping');
+                return;
+              }
+              throw e;
+            }

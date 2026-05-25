@@ -1,0 +1,14 @@
+name: Bug
+description: Something is broken
+labels: ["type:bug"]
+assignees:
+  - rabbitglauser
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What's broken?
+      description: Describe the bug
+      placeholder: Tell us what happened...
+    validations:
+      required: true

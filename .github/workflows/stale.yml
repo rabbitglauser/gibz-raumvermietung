@@ -1,0 +1,64 @@
+name: Stale Issues
+
+on:
+  schedule:
+    # Run every day at 2am UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  stale:
+    name: Mark and Close Stale Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Process stale issues
+        uses: actions/stale@v10
+        with:
+          # Issue settings
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          stale-issue-label: 'stale'
+          stale-issue-message: |
+            This issue has been automatically marked as stale because it has not had activity in the last 30 days.
+            
+            It will be closed in 14 days if no further activity occurs.
+            
+            If this issue is still relevant, please comment or update it to keep it open.
+          close-issue-message: |
+            This issue has been automatically closed due to inactivity.
+            
+            Feel free to reopen if this is still relevant.
+          
+          # PR settings
+          days-before-pr-stale: 14
+          days-before-pr-close: 7
+          stale-pr-label: 'stale'
+          stale-pr-message: |
+            This PR has been automatically marked as stale because it has not had activity in the last 14 days.
+            
+            It will be closed in 7 days if no further activity occurs.
+          
+          # Exempt labels - never mark these as stale
+          exempt-issue-labels: |
+            priority:critical
+            priority:high
+            V2
+            V3
+            pinned
+          
+          # Exempt assignees - issues assigned to someone are actively being worked on
+          exempt-all-issue-assignees: true
+          
+          # Don't process more than 30 issues per run to avoid rate limits
+          operations-per-run: 30
+          
+          # Remove stale label when issue is updated
+          remove-stale-when-updated: true
+          
+          # Labels to check for activity
+          only-labels: ''
+          
+          # Enable debug output
+          debug-only: false
