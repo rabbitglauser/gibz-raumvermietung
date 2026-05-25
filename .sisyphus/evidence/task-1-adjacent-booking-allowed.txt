@@ -1,0 +1,26 @@
+Task 1 — Adjacent same-room bookings return 201 — INTENTIONAL
+
+CONTEXT:
+  Plan: .sisyphus/plans/EXAMPLE-reservation-overlap.md
+  Verifying that has_reservation_conflict in backend/app/routers/reservations.py
+  uses strict `<` / `>` comparison (not `<=` / `>=`), so adjacent bookings in
+  the same room on the same date are allowed. Test source:
+  backend/tests/test_reservations.py::test_create_reservation_allows_adjacent_same_room_booking
+
+COMMAND:
+  pytest backend/tests/test_reservations.py::test_create_reservation_allows_adjacent_same_room_booking -v
+
+RESULT:
+  <paste actual pytest output here after running. Expected shape:>
+
+  ============================= test session starts =============================
+  collected 1 item
+
+  backend/tests/test_reservations.py::test_create_reservation_allows_adjacent_same_room_booking PASSED [100%]
+
+  ============================== 1 passed in 0.XXs ==============================
+
+STATUS: INTENTIONAL
+  Adjacent-booking behavior is locked in by the test above. Any future change
+  that tightens the overlap comparison from `<` to `<=` will fail this test
+  and force an explicit design review.

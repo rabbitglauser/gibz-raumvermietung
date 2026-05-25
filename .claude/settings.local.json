@@ -10,7 +10,9 @@
       "Bash(pytest backend/tests/test_health.py backend/tests/test_reservations.py backend/tests/test_rooms.py backend/tests/test_dao.py -v)",
       "Bash(gh label *)",
       "PowerShell(gh *)",
-      "PowerShell(git remote *)"
+      "PowerShell(git remote *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
