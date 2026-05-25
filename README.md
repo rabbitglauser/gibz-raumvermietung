@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://rabbitglauser.github.io/gibz-raumvermietung/raeume/"><img src="https://img.shields.io/badge/Live-Demo.com-9eca45?style=for-the-badge" alt="Live Demo"/></a>
-  <a href="[https://github.com/rabbitglauser/gibz-raumvermietung/tree/main/docs](https://github.com/rabbitglauser/super-lottomatch/tree/main/docs)"><img src="https://img.shields.io/badge/Docs-Architektur-003a5d?style=for-the-badge" alt="Docs"/></a>
+  <a href="https://github.com/rabbitglauser/gibz-raumvermietung/tree/main/docs"><img src="https://img.shields.io/badge/Docs-Architektur-003a5d?style=for-the-badge" alt="Docs"/></a>
   <a href="https://www.figma.com/design/dU7SgQ4GXlvGvDLVR3grMB/Untitled?node-id=0-1&p=f"><img src="https://img.shields.io/badge/Figma-Mockup-F24E1E?style=for-the-badge&logo=figma&logoColor=white" alt="Figma"/></a>
   <a href="https://www.notion.so/Cassandra-333e987f6a44807686f0f6a995211171?source=copy_link"><img src="https://img.shields.io/badge/Notion-Documentation-000000?style=for-the-badge&logo=notion&logoColor=white" alt="Notion"/></a>
 </p>
