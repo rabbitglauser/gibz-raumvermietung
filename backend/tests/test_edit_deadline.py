@@ -207,3 +207,77 @@ def test_edit_does_not_allow_conflicting_room_time(client):
         resp = client.put(f"/reservations/edit/{token}", json=conflicting_payload)
 
     assert resp.status_code == 409
+
+
+def test_edit_updates_catering_fields(client):
+    """Updating catering fields via PUT /reservations/edit/{token} persists changes."""
+    token = _create_and_get_token(client)
+
+    updated = valid_payload()
+    updated["catering"] = {
+        "needed": True,
+        "before_event": {"enabled": True, "from_time": "08:00", "to_time": "09:00"},
+        "during_event": {"enabled": False, "from_time": None, "to_time": None},
+        "after_event": {"enabled": False, "from_time": None, "to_time": None},
+    }
+
+    before_deadline = datetime(2026, 6, 13, 9, 0, 0, tzinfo=timezone.utc)
+    with patch("app.services.reservation_service.datetime") as mock_dt:
+        mock_dt.now.return_value = before_deadline
+        mock_dt.combine = datetime.combine
+        resp = client.put(f"/reservations/edit/{token}", json=updated)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["catering"]["needed"] is True
+    assert body["catering"]["before_event"]["enabled"] is True
+    assert body["catering"]["during_event"]["enabled"] is False
+
+
+def test_edit_rejects_catering_needed_without_active_window(client):
+    """Catering needed=True with no enabled windows should return 422."""
+    token = _create_and_get_token(client)
+
+    updated = valid_payload()
+    updated["catering"] = {
+        "needed": True,
+        "before_event": {"enabled": False, "from_time": None, "to_time": None},
+        "during_event": {"enabled": False, "from_time": None, "to_time": None},
+        "after_event": {"enabled": False, "from_time": None, "to_time": None},
+    }
+
+    before_deadline = datetime(2026, 6, 13, 9, 0, 0, tzinfo=timezone.utc)
+    with patch("app.services.reservation_service.datetime") as mock_dt:
+        mock_dt.now.return_value = before_deadline
+        mock_dt.combine = datetime.combine
+        resp = client.put(f"/reservations/edit/{token}", json=updated)
+
+    assert resp.status_code == 422
+
+
+def test_edit_updates_setup_fields(client):
+    """Updating setup (seating, equipment, microphone) via edit endpoint persists changes."""
+    token = _create_and_get_token(client)
+
+    updated = valid_payload()
+    updated["setup"] = {
+        "seating_type": "seminar",
+        "equipment": [{"type": "projector", "quantity": 2}, {"type": "flipchart", "quantity": 1}],
+        "microphone_needed": False,
+        "technical_support_hours": None,
+        "regie_hours": None,
+    }
+
+    before_deadline = datetime(2026, 6, 13, 9, 0, 0, tzinfo=timezone.utc)
+    with patch("app.services.reservation_service.datetime") as mock_dt:
+        mock_dt.now.return_value = before_deadline
+        mock_dt.combine = datetime.combine
+        resp = client.put(f"/reservations/edit/{token}", json=updated)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["setup"]["seating_type"] == "seminar"
+    assert body["setup"]["microphone_needed"] is False
+    equipment_types = {e["type"] for e in body["setup"]["equipment"]}
+    assert "projector" in equipment_types
+    assert "flipchart" in equipment_types

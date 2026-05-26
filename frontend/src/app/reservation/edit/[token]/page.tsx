@@ -3,6 +3,7 @@ import { Header } from "@/components/organisms/Header";
 import { Footer } from "@/components/organisms/Footer";
 import ReservationEditForm from "@/components/organisms/ReservationEditForm";
 import { getReservationByEditToken } from "@/lib/reservations";
+import { getRoom } from "@/lib/api";
 
 interface EditPageProps {
   params: Promise<{ token: string }>;
@@ -16,6 +17,8 @@ export default async function ReservationEditPage({ params }: EditPageProps) {
     notFound();
   }
 
+  const room = await getRoom(reservation.room);
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-white text-slate-900">
       <Header />
@@ -27,7 +30,7 @@ export default async function ReservationEditPage({ params }: EditPageProps) {
           Sie können Ihre Reservation bis 24 Stunden vor dem Veranstaltungsbeginn
           bearbeiten.
         </p>
-        <ReservationEditForm token={token} reservation={reservation} />
+        <ReservationEditForm token={token} reservation={reservation} room={room} />
       </main>
       <Footer />
     </div>
