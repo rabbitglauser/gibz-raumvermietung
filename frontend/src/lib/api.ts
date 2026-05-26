@@ -108,6 +108,7 @@ export interface ReservationCreate {
 export interface Reservation extends ReservationCreate {
   id: string;
   status: ReservationStatus;
+  edit_token?: string | null;
   created_at: string;
   updated_at: string;
 }

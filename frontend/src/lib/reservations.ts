@@ -124,6 +124,61 @@ export async function createReservation(
   }
 }
 
+export type UpdateResult =
+  | { ok: true; data: Reservation }
+  | { ok: false; status: number; message: string };
+
+export async function getReservationByEditToken(
+  token: string,
+): Promise<Reservation | null> {
+  if (!API_BASE_URL) return null;
+  try {
+    const res = await fetch(`${API_BASE_URL}/reservations/edit/${token}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as Reservation;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateReservation(
+  token: string,
+  payload: ReservationCreate,
+): Promise<UpdateResult> {
+  if (!API_BASE_URL) {
+    return { ok: false, status: 0, message: "API nicht konfiguriert" };
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/reservations/edit/${token}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 200) {
+      return { ok: true, data: (await res.json()) as Reservation };
+    }
+    let message = `Fehler ${res.status}`;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === "string") {
+        message = body.detail;
+      } else if (Array.isArray(body?.detail)) {
+        message = body.detail
+          .map((d: { msg?: string }) => d.msg ?? "Ungültige Eingabe")
+          .join("; ");
+      }
+    } catch {
+      // ignore body parse failure
+    }
+    return { ok: false, status: res.status, message };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Netzwerkfehler";
+    return { ok: false, status: 0, message };
+  }
+}
+
 export async function getReservations(roomId: string): Promise<Reservation[]> {
   if (!API_BASE_URL) {
     return [];

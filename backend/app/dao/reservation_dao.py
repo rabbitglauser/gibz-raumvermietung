@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -21,6 +22,7 @@ class ReservationDAO:
         now = datetime.now(timezone.utc)
         doc = payload.model_dump(mode="json")
         doc["status"] = ReservationStatus.pending.value
+        doc["edit_token"] = str(uuid.uuid4())
         doc["created_at"] = now
         doc["updated_at"] = now
 
@@ -31,6 +33,9 @@ class ReservationDAO:
     async def get_by_id(self, reservation_id: str) -> Optional[dict]:
         return await self.collection.find_one({"_id": reservation_id})
 
+    async def get_by_edit_token(self, token: str) -> Optional[dict]:
+        return await self.collection.find_one({"edit_token": token})
+
     async def list_all(self) -> list[dict]:
         items: list[dict] = []
         cursor = self.collection.find().sort("created_at", -1)
@@ -38,7 +43,9 @@ class ReservationDAO:
             items.append(item)
         return items
 
-    async def has_conflict(self, payload: ReservationCreate) -> bool:
+    async def has_conflict(
+        self, payload: ReservationCreate, exclude_id: Optional[str] = None
+    ) -> bool:
         # Overlap detection: two reservations conflict iff
         #   existing.setup_start_time < new.end_time
         #   AND existing.end_time > new.setup_start_time
@@ -46,7 +53,7 @@ class ReservationDAO:
         # because the comparisons are strict.
         # Times are stored as zero-padded ISO strings, so lexicographic
         # comparison matches chronological comparison.
-        conflict_filter = {
+        conflict_filter: dict = {
             "room": payload.room.value,
             "date": payload.date.isoformat(),
             "status": {
@@ -58,7 +65,21 @@ class ReservationDAO:
             "setup_start_time": {"$lt": payload.end_time.isoformat()},
             "end_time": {"$gt": payload.setup_start_time.isoformat()},
         }
+        if exclude_id is not None:
+            conflict_filter["_id"] = {"$ne": exclude_id}
         return await self.collection.find_one(conflict_filter) is not None
+
+    async def update_reservation(
+        self, reservation_id: str, payload: ReservationCreate
+    ) -> Optional[dict]:
+        now = datetime.now(timezone.utc)
+        updates = payload.model_dump(mode="json")
+        updates["updated_at"] = now
+        await self.collection.update_one(
+            {"_id": reservation_id},
+            {"$set": updates},
+        )
+        return await self.get_by_id(reservation_id)
 
     async def update_status(
         self, reservation_id: str, status: ReservationStatus
