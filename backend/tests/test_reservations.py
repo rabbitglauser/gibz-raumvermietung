@@ -285,3 +285,96 @@ def test_room_specific_equipment_validation(client):
 
     assert response.status_code == 422
     assert response.json()["detail"]
+
+
+def test_create_reservation_rejects_time_before_booking_window(client):
+    payload = valid_payload()
+    payload["setup_start_time"] = "06:00"
+    payload["start_time"] = "06:30"
+    payload["end_time"] = "10:00"
+
+    response = client.post("/reservations", json=payload)
+
+    assert response.status_code == 422
+    assert "07:00" in str(response.json()["detail"])
+
+
+def test_create_reservation_rejects_time_after_booking_window(client):
+    payload = valid_payload()
+    payload["setup_start_time"] = "20:00"
+    payload["start_time"] = "20:30"
+    payload["end_time"] = "23:00"
+
+    response = client.post("/reservations", json=payload)
+
+    assert response.status_code == 422
+    assert "22:00" in str(response.json()["detail"])
+
+
+def test_create_reservation_allows_different_room_same_time(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    other_room_payload = valid_payload()
+    other_room_payload["room"] = "seminarraum-2-112"
+    other_room_payload["attendee_count"] = 30
+    other_room_payload["setup"]["seating_type"] = "seminar"
+    other_room_payload["setup"]["equipment"] = [{"type": "projector", "quantity": 1}]
+    other_room_payload["setup"]["microphone_needed"] = False
+    other_room_payload["setup"]["technical_support_hours"] = None
+    other_room_payload["setup"]["regie_hours"] = None
+    other_room_payload["catering"] = {"needed": False}
+
+    response = client.post("/reservations", json=other_room_payload)
+
+    assert response.status_code == 201
+
+
+def test_create_reservation_allows_different_date_same_room(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    different_date_payload = valid_payload()
+    different_date_payload["date"] = "2026-06-16"
+
+    response = client.post("/reservations", json=different_date_payload)
+
+    assert response.status_code == 201
+
+
+def test_create_reservation_allows_overlap_with_cancelled_reservation(
+    client, mock_collection
+):
+    cancelled_doc = {
+        "_id": "reservation-cancelled",
+        "room": "aula-1-005",
+        "date": "2026-06-15",
+        "setup_start_time": "08:30",
+        "start_time": "09:00",
+        "end_time": "12:00",
+        "status": "cancelled",
+    }
+    mock_collection.documents.append(cancelled_doc)
+
+    response = client.post("/reservations", json=valid_payload())
+
+    assert response.status_code == 201
+
+
+def test_conflict_error_message_includes_room_and_date(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    overlap_payload = valid_payload()
+    overlap_payload["event_name"] = "Overlapping Event"
+    overlap_payload["setup_start_time"] = "10:00"
+    overlap_payload["start_time"] = "10:30"
+    overlap_payload["end_time"] = "13:00"
+
+    response = client.post("/reservations", json=overlap_payload)
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "already reserved" in detail
+    assert "aula-1-005" in detail
+    assert "2026-06-15" in detail
