@@ -10,6 +10,7 @@ from ..models.enums import UserRole
 from ..models.user import UserCreate
 
 ALGORITHM = "HS256"
+STAFF_ROLES = frozenset(role.value for role in UserRole)
 
 
 class AuthTokenError(Exception):
@@ -59,7 +60,7 @@ def decode_auth_token(token: str) -> StaffPrincipal:
     if not isinstance(username, str) or not isinstance(role, str):
         raise AuthTokenError("Invalid staff session")
 
-    if role not in {UserRole.staff.value, UserRole.admin.value}:
+    if role not in STAFF_ROLES:
         raise AuthPermissionError("Staff access required")
 
     return StaffPrincipal(username=username, role=role)
