@@ -129,3 +129,22 @@ def test_staff_token_can_cancel_reservation(client):
 
     assert response.status_code == 200
     assert response.json()["status"] == "cancelled"
+
+
+def test_secretariat_token_can_confirm_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client, role="secretariat")
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "confirmed"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+
+
+def test_hausdienst_token_can_cancel_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client, role="hausdienst")
+    response = client.delete(f"/reservations/{reservation_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"

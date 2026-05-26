@@ -1,16 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from ..config import settings
 from ..dao.user_dao import UserDAO
 from ..db import get_database
-from ..models.user import UserPublic, user_to_public
+from ..models.enums import UserRole
+from ..models.user import UserCreate, UserPublic, user_to_public
 from ..services.auth_service import (
+    STAFF_ROLES,
     AuthPermissionError,
     AuthTokenError,
     StaffPrincipal,
     create_auth_token,
     decode_auth_token,
+    hash_password,
     verify_password,
 )
 
@@ -25,6 +28,14 @@ class LoginRequest(BaseModel):
 class CurrentStaff(BaseModel):
     username: str
     role: str
+
+
+class StaffUserCreateRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=8)
+    role: UserRole = UserRole.staff
+    name: str = Field(min_length=1)
+    email: EmailStr
 
 
 def get_user_dao(database=Depends(get_database)) -> UserDAO:
@@ -72,6 +83,15 @@ def require_staff(request: Request) -> StaffPrincipal:
         ) from exc
 
 
+def require_admin(principal: StaffPrincipal = Depends(require_staff)) -> StaffPrincipal:
+    if principal.role != UserRole.admin.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return principal
+
+
 @router.post("/login", response_model=UserPublic)
 async def login(
     payload: LoginRequest,
@@ -99,3 +119,36 @@ async def logout(response: Response):
 @router.get("/me", response_model=CurrentStaff)
 async def me(principal: StaffPrincipal = Depends(require_staff)):
     return {"username": principal.username, "role": principal.role}
+
+
+@router.get("/users", response_model=list[UserPublic])
+async def list_staff_users(
+    user_dao: UserDAO = Depends(get_user_dao),
+    _admin: StaffPrincipal = Depends(require_admin),
+):
+    docs = await user_dao.list_all()
+    return [user_to_public(doc) for doc in docs]
+
+
+@router.post("/users", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
+async def create_staff_user(
+    payload: StaffUserCreateRequest,
+    user_dao: UserDAO = Depends(get_user_dao),
+    _admin: StaffPrincipal = Depends(require_admin),
+):
+    existing = await user_dao.get_by_username(payload.username)
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken",
+        )
+    doc = await user_dao.create(
+        UserCreate(
+            username=payload.username,
+            password_hash=hash_password(payload.password),
+            role=payload.role,
+            name=payload.name,
+            email=payload.email,
+        )
+    )
+    return user_to_public(doc)
