@@ -73,3 +73,7 @@ class ReservationDAO:
             },
         )
         return await self.get_by_id(reservation_id)
+
+    async def delete(self, reservation_id: str) -> bool:
+        result = await self.collection.delete_one({"_id": reservation_id})
+        return result.deleted_count > 0

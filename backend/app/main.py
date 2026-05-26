@@ -7,6 +7,7 @@ from .config import settings
 from .db import ping_db
 from .routers.reservations import router as reservations_router
 from .routers.rooms import router as rooms_router
+from .routers.staff import router as staff_router
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ app.add_middleware(
 
 app.include_router(reservations_router)
 app.include_router(rooms_router)
+app.include_router(staff_router)
 
 
 @app.get("/")
