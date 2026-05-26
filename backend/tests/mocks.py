@@ -17,7 +17,7 @@ class AsyncCursor:
     def sort(self, field: str, direction: int) -> "AsyncCursor":
         self.documents = sorted(
             self.documents,
-            key=lambda item: item[field],
+            key=lambda item: get_nested_value(item, field),
             reverse=direction < 0,
         )
         return self

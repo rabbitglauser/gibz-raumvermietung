@@ -94,3 +94,36 @@ class ReservationDAO:
             },
         )
         return await self.get_by_id(reservation_id)
+
+    async def list_reminder_candidates(self, from_date: str, to_date: str) -> list[dict]:
+        items: list[dict] = []
+        cursor = self.collection.find(
+            {
+                "date": {"$gte": from_date, "$lte": to_date},
+                "status": {
+                    "$nin": [
+                        ReservationStatus.cancelled.value,
+                        ReservationStatus.rejected.value,
+                    ]
+                },
+            }
+        ).sort("date", 1)
+        async for item in cursor:
+            items.append(item)
+        return items
+
+    async def mark_reminder_sent(self, reservation_id: str) -> Optional[dict]:
+        doc = await self.get_by_id(reservation_id)
+        if doc is None:
+            return None
+        await self.collection.update_one(
+            {"_id": reservation_id},
+            {
+                "$set": {
+                    "reminder_sent_at": datetime.now(timezone.utc),
+                    "reminder_count": doc.get("reminder_count", 0) + 1,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+        return await self.get_by_id(reservation_id)

@@ -4,15 +4,15 @@
 
 The repository contains focused backend pytest tests for reservation creation,
 room catalogue responses, validation, customer edit links, staff
-authentication, staff status/cancel routes, and reservation filters. Manual
-testing is still used for Docker Compose startup, MongoDB persistence, and the
-frontend booking flow.
+authentication, staff status/cancel routes, reservation filters, and reminder
+emails. Manual testing is still used for Docker Compose startup, MongoDB
+persistence, and browser workflows.
 
 Latest automated result:
 
 ```text
 pytest -q
-58 passed, 1 warning
+65 passed, 1 warning
 ```
 
 The current implemented application surface is small:
@@ -26,10 +26,12 @@ The current implemented application surface is small:
 - Customer edit endpoint with token and edit-deadline enforcement.
 - Staff login/logout/me endpoints with HTTP-only cookie auth.
 - Staff-only reservation status and cancel endpoints.
+- Staff dashboard route at `/staff`.
+- Manual reminder endpoint.
 - MongoDB persistence through Docker Compose.
 
-Planned features such as reminder emails and the frontend staff dashboard are
-not yet implemented and therefore cannot be tested as working features yet.
+External calendar sync, payment handling, production SSO, and scheduled
+background reminders are intentionally not implemented.
 
 ## Automated Backend Tests
 
@@ -74,6 +76,10 @@ Current automated coverage:
 - Customer edit-token routes return reservations, update before the deadline,
   reject updates after the deadline with `403`, reject unknown tokens with
   `404`, and reject edit conflicts with `409`.
+- Reminder logic detects incomplete reservations.
+- `POST /reminders/run` requires staff auth.
+- Missing SMTP settings return a clear service error.
+- Reminder sending is tested with mocked SMTP.
 - Room-specific capacity/equipment rules return `422`.
 
 ## Manual Test Plan
@@ -274,7 +280,6 @@ Recommended first tests:
 
 Recommended future tests after feature implementation:
 
-- Reminder logic identifies incomplete reservations within the configured reminder window.
 - Frontend booking dialog submits valid data and displays conflicts/errors.
 - Frontend staff dashboard login, filters, and status actions work end-to-end.
 
@@ -318,7 +323,6 @@ When automated tests are added, they should use a separate database name such as
 ## Known Test Gaps
 
 - No frontend interaction tests exist yet.
-- Reminder behavior is not implemented or tested yet.
-- The frontend staff dashboard is not implemented or tested yet.
+- Reminder scheduling is not implemented; reminders are staff-triggered.
 - Docker Compose startup, backup/restore, and MongoDB persistence still rely on
   manual verification.

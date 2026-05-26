@@ -4,7 +4,9 @@ const repoName = "gibz-raumvermietung";
 const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
 
 const nextConfig: NextConfig = {
-  output: "export",
+  turbopack: {
+    root: process.cwd(),
+  },
   trailingSlash: true,
   images: {
     unoptimized: true,

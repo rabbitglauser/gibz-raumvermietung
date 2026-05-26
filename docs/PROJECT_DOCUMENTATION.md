@@ -2,114 +2,106 @@
 
 ## 3.1 Additional Functions
 
-The current implementation is a technical baseline for the room rental application. It includes a Dockerized full-stack structure, a reservation API, and a room catalogue based on the real GIBZ room data.
+The application replaces the PDF-based room reservation process with a
+Dockerized web application for three GIBZ rooms: Aula 1.005, Seminarraum 2.112,
+and Seminarraum 5.003/004.
 
 Implemented:
 
-- Docker Compose setup for frontend, backend, and MongoDB.
-- FastAPI backend with health check endpoints.
-- Reservation creation via `POST /reservations` with the core fields from the reservation form.
-- Reservation listing via `GET /reservations`.
-- MongoDB persistence for reservation documents.
-- Room catalogue via `GET /rooms`, seeded in MongoDB from the real GIBZ room data.
-- Public room catalogue and detail pages for Aula 1.005, Seminarraum 2.112, and Seminarraum 5.003/004.
-- Frontend health display that verifies the backend connection.
-- MongoDB backup and restore scripts with support documentation.
+- Public room catalogue and room detail pages with real GIBZ room data.
+- Booking dialog with date/time selection, contact and billing details, room
+  rules, catering, setup, publication options, and AGB acceptance.
+- Reservation API with conflict detection, adjacent-booking support, room
+  capacity/equipment validation, edit tokens, and edit deadlines.
+- Customer edit page at `/reservation/edit/[token]`.
+- Staff login with hashed passwords and HTTP-only JWT cookie sessions.
+- Staff dashboard at `/staff` with filters, status updates, cancellation, and
+  manual reminder sending.
+- SMTP-backed reminder service for incomplete upcoming reservations.
+- MongoDB persistence with collections for rooms, reservations, and users.
+- Backup and restore scripts with a documented support runbook.
+- Automated pytest suite covering the backend core behavior.
 
-Planned but not yet implemented:
+Not implemented by design:
 
-- Customer edit links for completing catering, setup, and material details later.
-- Configurable edit deadlines before the event date.
-- Automatic reminders for incomplete reservation details.
-- Staff dashboard for secretariat, facility management, and Restaurant Treff.
-- Staff authentication, roles, filters, and full CRUD reservation management.
-
-The current project therefore demonstrates the technical foundation and the public room catalogue, but not yet the complete functional scope required for the final submission.
+- External calendar synchronization.
+- Payment handling.
+- Production SSO.
+- Automated scheduled reminder jobs. Reminders are triggered manually by staff
+  so they can be demonstrated and tested reliably.
 
 ## 3.2 Architecture Visualization
 
-The application is structured as a simple three-service system:
+The application is a three-service Docker Compose system:
 
 ```mermaid
 graph TB
-    Browser["User Browser"]
-    Frontend["Next.js Frontend<br/>Port 3000"]
-    Backend["FastAPI Backend<br/>Port 8000"]
+    Browser["Browser"]
+    Frontend["Next.js frontend<br/>Port 3000"]
+    Backend["FastAPI backend<br/>Port 8000"]
     MongoDB["MongoDB 8<br/>Port 27017<br/>Volume: mongodb_data"]
+    SMTP["SMTP server"]
 
     Browser --> Frontend
-    Frontend -->|"HTTP / REST"| Backend
+    Frontend -->|"REST API"| Backend
     Backend -->|"AsyncMongoClient"| MongoDB
+    Backend -->|"SMTP reminders"| SMTP
 ```
 
-Current flow:
+Main flows:
 
-1. The browser opens the Next.js frontend at `http://localhost:3000`.
-2. The frontend calls the backend health endpoint through `src/lib/api.ts`.
-3. The FastAPI backend exposes REST endpoints and connects to MongoDB.
-4. Room documents are stored in the `rooms` collection.
-5. Reservation documents are stored in the `reservations` collection.
-6. MongoDB data is persisted in the Docker named volume `mongodb_data`.
-
-Planned final architecture:
-
-- Add staff, authentication, and configuration collections.
-- Add service-layer logic for conflict detection, edit deadlines, reminders, and staff filters.
-- Add frontend routes for reservation editing and staff dashboard.
+1. Customers browse rooms and submit reservations through the frontend.
+2. The backend validates business rules and stores reservations in MongoDB.
+3. Customers use edit-token links to update details until the edit deadline.
+4. Staff log in through `/auth/login`; the backend sets an HTTP-only cookie.
+5. Staff manage reservations and manually trigger reminders from `/staff`.
 
 ## 3.3 Technology Stack
 
-| Area | Technology | Current use |
+| Area | Technology | Use |
 |---|---|---|
-| Frontend | Next.js 16.2.2 | Web frontend and server-rendered home page |
-| Frontend language | TypeScript | Type-safe frontend source files |
-| UI library | React 19.2.4 | Component-based frontend |
-| Styling | Tailwind CSS 4 | Global styling via `globals.css` |
-| Backend | FastAPI 0.135.3 | REST API and Swagger documentation |
-| Backend language | Python 3.12 | Backend runtime |
-| Validation | Pydantic 2.12.5 | Request and response models |
-| Database driver | PyMongo 4.16.0 | Async MongoDB access |
-| Database | MongoDB 8 | NoSQL document database |
-| Containerization | Docker and Docker Compose | Local/demo deployment |
-| ASGI server | Uvicorn 0.44.0 | Runs the FastAPI application |
+| Frontend | Next.js 16, React 19, TypeScript | Web UI and staff dashboard |
+| Styling | Tailwind CSS 4 | GIBZ-themed responsive layout |
+| Backend | FastAPI, Pydantic 2 | REST API, validation, OpenAPI docs |
+| Database | MongoDB 8 with PyMongo async | Room, reservation, and staff documents |
+| Auth | bcrypt, PyJWT, HTTP-only cookies | Staff login/session handling |
+| Email | Python `smtplib` | SMTP reminder delivery |
+| Deployment | Docker Compose | Local/demo full-stack startup |
+| Tests | pytest | Backend route/service/DAO tests |
 
-MongoDB was selected because the assignment requires a NoSQL database and reservation data fits a document-oriented model. A reservation can later contain nested fields such as catering, setup variant, material requirements, reminder state, and edit deadline without requiring a relational schema migration.
-
-FastAPI was selected because it provides automatic OpenAPI documentation, strong request validation through Pydantic, and a simple structure for REST endpoints. Next.js was selected for the frontend because it provides a modern React-based setup with TypeScript support and straightforward routing for the planned room and staff pages.
+MongoDB fits the project because reservations are document-shaped: contact,
+billing, catering, setup, publication, reminder state, and edit-token fields
+belong naturally in one reservation document.
 
 ## 3.4 Testing
 
-The repository now includes focused backend pytest tests for reservation creation and validation. Manual API testing is still useful for Docker/MongoDB verification.
+Latest backend result:
 
-Current test scenarios:
+```text
+pytest -q
+65 passed, 1 warning
+```
 
-- Start the stack with `docker compose up --build`.
-- Open the frontend at `http://localhost:3000` and verify that the backend health JSON is displayed.
-- Open the backend health endpoint at `http://localhost:8000/health` and verify that it returns status `ok`.
-- Open Swagger UI at `http://localhost:8000/docs`.
-- Create a reservation through `POST /reservations` with valid reservation data.
-- Call `GET /reservations` and verify that the created reservation appears in the response.
-- Submit invalid reservation data, for example an invalid email address, invalid time order, rejected terms, invalid organizer type, or non-positive attendee count, and verify that FastAPI/Pydantic returns validation errors.
-- Restart the Docker stack without deleting volumes and verify that MongoDB data is still present.
+Automated backend coverage includes:
 
-Automated tests currently cover:
+- Health/root endpoints.
+- Room catalogue endpoints.
+- Reservation creation, listing, filters, validation, and conflict detection.
+- Customer edit token lookup/update and edit-deadline rejection.
+- Staff login/logout/me routes.
+- Staff-only status update and cancellation routes.
+- Reminder eligibility, SMTP configuration errors, and successful mocked send.
+- DAO/service behavior with in-memory Mongo-style fakes.
 
-- Successful `POST /reservations` creation.
-- Email validation.
-- Positive attendee count validation.
-- Organizer type validation.
-- Terms acceptance validation.
-- Time-order validation.
-- Room ID validation.
-- Reservation overlap conflict detection.
-- Typed `GET /reservations` response.
-- Room-specific capacity/equipment validation.
+Manual checks still required before final submission:
 
-Recommended automated tests for the next iteration:
-
-- API tests for `GET /reservations` and `/health`.
-- Integration tests against a separate MongoDB test database.
-- Future tests for conflict detection, edit deadlines, staff authentication, filters, and reminder logic once those features are implemented.
+- `docker compose up --build` starts MongoDB, backend, and frontend.
+- Public booking flow works in the browser.
+- `/staff` login works with the demo staff account from `.env`.
+- Staff filters/status actions/cancellation work.
+- Reminder button returns a clear SMTP configuration error when SMTP is not set,
+  or sends via a configured SMTP test server.
+- Backup and restore scripts run successfully on a development database.
 
 ## 3.5 Installation Guide
 
@@ -125,6 +117,23 @@ For local development without Docker:
 - Node.js 20 or newer.
 - MongoDB 8 or a reachable MongoDB connection string.
 
+### Configure Backend
+
+Create `backend/.env` from the example:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+For local Docker demos, the example enables a demo staff user:
+
+```text
+SEED_STAFF_USERNAME=secretariat
+SEED_STAFF_PASSWORD=ChangeMe123!
+```
+
+Change `AUTH_SECRET_KEY` and staff credentials before any non-demo use.
+
 ### Start with Docker Compose
 
 From the repository root:
@@ -136,71 +145,48 @@ docker compose up --build
 After startup:
 
 - Frontend: `http://localhost:3000`
+- Staff dashboard: `http://localhost:3000/staff`
 - Backend API: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
 - MongoDB: `localhost:27017`
 
-To stop the stack:
+To stop:
 
 ```bash
 docker compose down
 ```
 
-To stop the stack and delete MongoDB data:
+To delete local MongoDB data:
 
 ```bash
 docker compose down -v
 ```
 
-### Backend configuration
+### Backup and Restore
 
-The backend reads configuration from environment variables through Pydantic Settings. In Docker Compose, the backend uses `backend/.env`.
+The complete support runbook is in `docs/BACKUP_RESTORE.md`.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `APP_NAME` | `room-rental-api` | API name used by FastAPI |
-| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
-| `MONGODB_DB` | `room_rental` | MongoDB database name |
-| `CORS_ORIGINS` | `http://localhost:3000` | Allowed frontend origins |
-
-When running inside Docker Compose, `MONGODB_URL` must point to the service name, for example `mongodb://mongodb:27017`.
-
-### Frontend configuration
-
-| Variable | Purpose |
-|---|---|
-| `API_BASE_URL` | Backend URL used by server-side frontend code |
-| `NEXT_PUBLIC_API_BASE_URL` | Backend URL used by browser/client-side frontend code |
-
-The Docker Compose file sets `API_BASE_URL` to `http://backend:8000` and `NEXT_PUBLIC_API_BASE_URL` to `http://localhost:8000`.
-
-### Backup and restore
-
-The complete support runbook is documented in `docs/BACKUP_RESTORE.md`.
-
-Create a MongoDB backup:
+Create a backup:
 
 ```powershell
 .\scripts\backup-mongodb.ps1
 ```
 
-Restore a MongoDB backup:
+Restore a backup:
 
 ```powershell
 .\scripts\restore-mongodb.ps1 -ArchivePath .\backups\room_rental-YYYYMMDD-HHMMSS.archive.gz -ConfirmDataLoss
 ```
 
-Verify restore with sample data on a development database:
-
-```powershell
-.\scripts\verify-mongodb-restore.ps1 -ConfirmDataLoss
-```
-
 ## 3.6 Conclusion
 
-The project currently provides a working technical foundation for the GIBZ room rental application. The frontend, backend, database, and Docker Compose setup are connected, and reservation creation/listing is available through the API with the main reservation form fields.
+The project now demonstrates the complete core workflow: customers can reserve
+rooms, conflicts are blocked, customers can edit through secure links, and staff
+can manage reservations through a protected dashboard. The MongoDB document
+model is used for realistic nested reservation data, and Docker Compose makes
+the system easy to start for evaluation.
 
-The strongest current parts are the simple deployment model, the clear separation between frontend/backend/database services, and the use of MongoDB as a NoSQL document database. The main missing parts are the user-facing room catalogue, the staff dashboard, business-rule validation such as reservation conflict detection, automatic reminders, and the DAO layer required by the assignment.
-
-The next development step should be to implement the missing core workflows before expanding the documentation into a final PDF submission.
+The remaining limitations are acceptable for a school project: reminders are
+manual rather than scheduled, SMTP depends on external configuration, and there
+is no integration with GIBZ SSO or external calendars.

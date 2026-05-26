@@ -6,10 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .db import ping_db
+from .db import get_database, ping_db
 from .routers.auth import router as auth_router
+from .routers.reminders import router as reminders_router
 from .routers.reservations import router as reservations_router
 from .routers.rooms import router as rooms_router
+from .services.auth_service import seed_demo_staff_user
 
 _FIELD_LABELS: dict[str, str] = {
     "event_name": "Veranstaltungsname",
@@ -44,6 +46,10 @@ _FIELD_LABELS: dict[str, str] = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_ok = await ping_db()
+    if app.state.db_ok:
+        app.state.demo_staff_seeded = await seed_demo_staff_user(get_database())
+    else:
+        app.state.demo_staff_seeded = False
     yield
 
 
@@ -60,6 +66,7 @@ app.add_middleware(
 app.include_router(reservations_router)
 app.include_router(rooms_router)
 app.include_router(auth_router)
+app.include_router(reminders_router)
 
 
 @app.exception_handler(RequestValidationError)

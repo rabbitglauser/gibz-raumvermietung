@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -7,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.config import settings
 from app.db import get_database
 from app.main import app
-from app.services.auth_service import hash_password
+from app.services.auth_service import hash_password, seed_demo_staff_user
 
 from .mocks import MockUsersCollection
 
@@ -80,3 +81,28 @@ def test_logout_clears_staff_cookie(client):
     assert response.status_code == 200
     assert settings.auth_cookie_name in response.headers["set-cookie"]
     assert "max-age=0" in response.headers["set-cookie"].lower()
+
+
+def test_seed_demo_staff_user_creates_user_when_enabled(monkeypatch):
+    users = MockUsersCollection()
+    monkeypatch.setattr(settings, "seed_staff_enabled", True)
+    monkeypatch.setattr(settings, "seed_staff_username", "demo")
+    monkeypatch.setattr(settings, "seed_staff_password", "demo-password")
+    monkeypatch.setattr(settings, "seed_staff_name", "Demo User")
+    monkeypatch.setattr(settings, "seed_staff_email", "demo@example.com")
+
+    created = asyncio.run(seed_demo_staff_user(SimpleNamespace(users=users)))
+
+    assert created is True
+    assert users.documents[0]["username"] == "demo"
+    assert users.documents[0]["role"] == "staff"
+
+
+def test_seed_demo_staff_user_skips_when_disabled(monkeypatch):
+    users = MockUsersCollection()
+    monkeypatch.setattr(settings, "seed_staff_enabled", False)
+
+    created = asyncio.run(seed_demo_staff_user(SimpleNamespace(users=users)))
+
+    assert created is False
+    assert users.documents == []

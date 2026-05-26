@@ -7,6 +7,7 @@ from jwt import InvalidTokenError
 
 from ..config import settings
 from ..models.enums import UserRole
+from ..models.user import UserCreate
 
 ALGORITHM = "HS256"
 
@@ -62,3 +63,27 @@ def decode_auth_token(token: str) -> StaffPrincipal:
         raise AuthPermissionError("Staff access required")
 
     return StaffPrincipal(username=username, role=role)
+
+
+async def seed_demo_staff_user(database) -> bool:
+    """Create the local demo staff user when explicitly enabled."""
+    if not settings.seed_staff_enabled:
+        return False
+
+    from ..dao.user_dao import UserDAO
+
+    dao = UserDAO(database)
+    existing = await dao.get_by_username(settings.seed_staff_username)
+    if existing is not None:
+        return False
+
+    await dao.create(
+        UserCreate(
+            username=settings.seed_staff_username,
+            password_hash=hash_password(settings.seed_staff_password),
+            role=UserRole.staff,
+            name=settings.seed_staff_name,
+            email=settings.seed_staff_email,
+        )
+    )
+    return True

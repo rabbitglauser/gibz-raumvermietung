@@ -12,6 +12,19 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "staff_session"
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
+    public_frontend_url: str = "http://localhost:3000"
+    seed_staff_enabled: bool = False
+    seed_staff_username: str = "secretariat"
+    seed_staff_password: str = "ChangeMe123!"
+    seed_staff_name: str = "Demo Secretariat"
+    seed_staff_email: str = "secretariat@example.com"
+    reminder_days_before: int = 7
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

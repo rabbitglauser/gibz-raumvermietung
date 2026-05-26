@@ -235,6 +235,8 @@ class ReservationOut(ReservationCreate):
     id: str
     status: ReservationStatus
     edit_token: Optional[str] = None
+    reminder_sent_at: Optional[datetime] = None
+    reminder_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -263,6 +265,8 @@ def reservation_to_response(doc: dict) -> dict:
         "terms_accepted": doc["terms_accepted"],
         "status": doc["status"],
         "edit_token": doc.get("edit_token"),
+        "reminder_sent_at": doc.get("reminder_sent_at"),
+        "reminder_count": doc.get("reminder_count", 0),
         "created_at": doc["created_at"],
         "updated_at": doc["updated_at"],
     }

@@ -9,7 +9,7 @@ Latest result:
 
 ```bash
 pytest -q
-# 58 passed, 1 warning
+# 65 passed, 1 warning
 ```
 
 ## Running
@@ -56,3 +56,4 @@ pytest -v
 | Edit deadline behavior            | `test_edit_deadline.py`    | active   |
 | Staff auth routes                 | `test_auth_routes.py`      | active   |
 | Staff-protected routes            | `test_staff_routes.py`     | active   |
+| Reminder routes/service           | `test_reminders.py`        | active   |
