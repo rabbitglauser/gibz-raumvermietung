@@ -43,7 +43,9 @@ class ReservationService:
     async def create(self, payload: ReservationCreate) -> dict:
         if await self.dao.has_conflict(payload):
             raise ReservationConflictError(
-                "The selected room is already reserved during this time window"
+                f"The room '{payload.room.value}' is already reserved on {payload.date} "
+                f"between {payload.setup_start_time.strftime('%H:%M')} and "
+                f"{payload.end_time.strftime('%H:%M')}. Please choose a different time slot."
             )
         created = await self.dao.create(payload)
         if created is None:

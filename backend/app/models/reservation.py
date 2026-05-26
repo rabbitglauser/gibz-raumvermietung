@@ -11,6 +11,9 @@ from .enums import (
     SeatingType,
 )
 
+BOOKING_WINDOW_START = time(7, 0)   # earliest allowed setup_start_time
+BOOKING_WINDOW_END = time(22, 0)    # latest allowed end_time
+
 
 # Per-room rule table. Edit this when adding/changing a room — do not add
 # room-specific branches in handlers, services, or DAOs.
@@ -210,8 +213,19 @@ class ReservationCreate(BaseModel):
     def validate_business_rules(self) -> "ReservationCreate":
         if self.setup_start_time > self.start_time:
             raise ValueError("Aufbauzeit darf nicht nach der Startzeit liegen")
+
         if self.start_time >= self.end_time:
             raise ValueError("Startzeit muss vor der Endzeit liegen")
+
+        if self.setup_start_time < BOOKING_WINDOW_START:
+            raise ValueError(
+                f"Reservationen können nicht vor {BOOKING_WINDOW_START.strftime('%H:%M')} beginnen"
+            )
+
+        if self.end_time > BOOKING_WINDOW_END:
+            raise ValueError(
+                f"Reservationen können nicht nach {BOOKING_WINDOW_END.strftime('%H:%M')} enden"
+            )
 
         validate_room_rules(self)
         return self
