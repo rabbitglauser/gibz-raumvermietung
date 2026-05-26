@@ -63,9 +63,15 @@ export function buildPayload(
   };
 }
 
+export type ValidationError = {
+  field: string;
+  label: string;
+  message: string;
+};
+
 export type CreateResult =
   | { ok: true; data: Reservation }
-  | { ok: false; status: number; message: string };
+  | { ok: false; status: number; message: string; validationErrors?: ValidationError[] };
 
 export async function createReservation(
   payload: ReservationCreate,
@@ -87,19 +93,31 @@ export async function createReservation(
     }
 
     let message = `Fehler ${res.status}`;
+    let validationErrors: ValidationError[] | undefined;
     try {
       const body = await res.json();
       if (typeof body?.detail === "string") {
         message = body.detail;
       } else if (Array.isArray(body?.detail)) {
-        message = body.detail
-          .map((d: { msg?: string; loc?: unknown[] }) => d.msg ?? "Ungültige Eingabe")
+        const items = body.detail as Array<{
+          field?: string;
+          label?: string;
+          message?: string;
+          msg?: string;
+        }>;
+        validationErrors = items.map((d) => ({
+          field: d.field ?? "",
+          label: d.label ?? d.field ?? "",
+          message: d.message ?? d.msg ?? "Ungültige Eingabe",
+        }));
+        message = validationErrors
+          .map((e) => (e.label ? `${e.label}: ${e.message}` : e.message))
           .join("; ");
       }
     } catch {
       // ignore body parse failure
     }
-    return { ok: false, status: res.status, message };
+    return { ok: false, status: res.status, message, validationErrors };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Netzwerkfehler";
     return { ok: false, status: 0, message };

@@ -1,12 +1,43 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .config import settings
 from .db import ping_db
 from .routers.reservations import router as reservations_router
 from .routers.rooms import router as rooms_router
+
+_FIELD_LABELS: dict[str, str] = {
+    "event_name": "Veranstaltungsname",
+    "date": "Datum",
+    "setup_start_time": "Aufbauzeit",
+    "start_time": "Startzeit",
+    "end_time": "Endzeit",
+    "room": "Raum",
+    "attendee_count": "Teilnehmerzahl",
+    "organizer_type": "Veranstaltertyp",
+    "contact.name": "Kontaktname",
+    "contact.email": "E-Mail",
+    "contact.phone": "Telefon",
+    "contact.department": "Abteilung",
+    "billing_address.name": "Rechnungsadresse Name",
+    "billing_address.street": "Strasse",
+    "billing_address.postal_code_city": "PLZ / Ort",
+    "billing_address.invoice_note": "Rechnungsvermerk",
+    "terms_accepted": "AGB",
+    "setup.seating_type": "Bestuhlung",
+    "setup.microphone_needed": "Mikrofonanlage",
+    "setup.technical_support_hours": "Technischer Support",
+    "setup.regie_hours": "Regie",
+    "catering.needed": "Verpflegung",
+    "catering.before_event": "Verpflegung vor der Veranstaltung",
+    "catering.during_event": "Verpflegung während der Veranstaltung",
+    "catering.after_event": "Verpflegung nach der Veranstaltung",
+    "remarks": "Bemerkungen",
+}
 
 
 @asynccontextmanager
@@ -27,6 +58,21 @@ app.add_middleware(
 
 app.include_router(reservations_router)
 app.include_router(rooms_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    errors = []
+    for err in exc.errors():
+        loc_parts = [str(p) for p in err["loc"] if p != "body"]
+        field = ".".join(loc_parts)
+        label = _FIELD_LABELS.get(
+            field, field.replace("_", " ").capitalize() or "Eingabe"
+        )
+        errors.append({"field": field, "label": label, "message": err["msg"]})
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.get("/")
