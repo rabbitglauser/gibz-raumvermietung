@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from ..dao.reservation_dao import ReservationDAO
 from ..db import get_database
+from ..models.enums import ReservationStatus
 from ..models.reservation import (
     ReservationCreate,
     ReservationList,
     ReservationOut,
 )
+from .auth import require_staff
 from ..services.reservation_service import (
     ReservationConflictError,
     ReservationEditDeadlineError,
@@ -15,6 +20,10 @@ from ..services.reservation_service import (
 )
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
+
+
+class ReservationStatusUpdate(BaseModel):
+    status: ReservationStatus
 
 
 def get_reservation_service(database=Depends(get_database)) -> ReservationService:
@@ -34,9 +43,25 @@ async def create_reservation(
 
 @router.get("", response_model=ReservationList)
 async def list_reservations(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    has_catering: bool | None = None,
+    upcoming: bool | None = Query(default=None),
+    past: bool | None = Query(default=None),
     service: ReservationService = Depends(get_reservation_service),
 ):
-    items = await service.list_all()
+    if upcoming and past:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="upcoming and past filters cannot both be true",
+        )
+    items = await service.list_all(
+        from_date=from_date,
+        to_date=to_date,
+        has_catering=has_catering,
+        upcoming=upcoming,
+        past=past,
+    )
     return {"items": items}
 
 
@@ -65,3 +90,34 @@ async def update_reservation(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ReservationConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@router.patch("/{reservation_id}/status", response_model=ReservationOut)
+async def update_reservation_status(
+    reservation_id: str,
+    payload: ReservationStatusUpdate,
+    service: ReservationService = Depends(get_reservation_service),
+    _staff=Depends(require_staff),
+):
+    updated = await service.update_status(reservation_id, payload.status)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation not found",
+        )
+    return updated
+
+
+@router.delete("/{reservation_id}", response_model=ReservationOut)
+async def cancel_reservation(
+    reservation_id: str,
+    service: ReservationService = Depends(get_reservation_service),
+    _staff=Depends(require_staff),
+):
+    updated = await service.update_status(reservation_id, ReservationStatus.cancelled)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation not found",
+        )
+    return updated

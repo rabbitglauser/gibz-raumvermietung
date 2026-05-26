@@ -3,8 +3,17 @@
 ## Current Status
 
 The repository contains focused backend pytest tests for reservation creation,
-room catalogue responses, and validation. Manual testing is still used for
-Docker Compose startup and MongoDB persistence.
+room catalogue responses, validation, customer edit links, staff
+authentication, staff status/cancel routes, and reservation filters. Manual
+testing is still used for Docker Compose startup, MongoDB persistence, and the
+frontend booking flow.
+
+Latest automated result:
+
+```text
+pytest -q
+58 passed, 1 warning
+```
 
 The current implemented application surface is small:
 
@@ -13,12 +22,14 @@ The current implemented application surface is small:
 - Backend health endpoints.
 - Room catalogue endpoint.
 - Reservation creation endpoint with core reservation form fields.
-- Reservation listing endpoint.
+- Reservation listing endpoint with date, catering, upcoming, and past filters.
+- Customer edit endpoint with token and edit-deadline enforcement.
+- Staff login/logout/me endpoints with HTTP-only cookie auth.
+- Staff-only reservation status and cancel endpoints.
 - MongoDB persistence through Docker Compose.
 
-Planned features such as staff login, dashboard filters, edit deadlines, and
-reminders are not yet implemented and therefore cannot be tested as working
-features yet.
+Planned features such as reminder emails and the frontend staff dashboard are
+not yet implemented and therefore cannot be tested as working features yet.
 
 ## Automated Backend Tests
 
@@ -48,6 +59,21 @@ Current automated coverage:
 - Invalid room IDs return `422`.
 - Overlapping reservations for the same room/date/time return `409`.
 - `GET /reservations` returns typed `items`.
+- `GET /reservations` filters by `from_date`, `to_date`, `has_catering`,
+  `upcoming`, and `past`.
+- `GET /reservations` rejects conflicting `upcoming=true` and `past=true`
+  filters with `422`.
+- `POST /auth/login` accepts valid staff credentials and sets an HTTP-only
+  cookie.
+- `POST /auth/login` rejects invalid credentials with `401`.
+- `GET /auth/me` returns the current staff session from the cookie.
+- `POST /auth/logout` clears the staff cookie.
+- Staff-only status routes reject anonymous users with `401`.
+- Staff-only status routes reject non-staff tokens with `403`.
+- Staff users can confirm, reject, and cancel reservations.
+- Customer edit-token routes return reservations, update before the deadline,
+  reject updates after the deadline with `403`, reject unknown tokens with
+  `404`, and reject edit conflicts with `409`.
 - Room-specific capacity/equipment rules return `422`.
 
 ## Manual Test Plan
@@ -248,14 +274,9 @@ Recommended first tests:
 
 Recommended future tests after feature implementation:
 
-- Reservation conflict detection rejects overlapping bookings for the same room.
-- Adjacent bookings for the same room are allowed.
-- Customer edit token grants access only to one reservation.
-- Edit deadline blocks customer updates after the configured deadline.
-- Staff login protects staff-only endpoints.
-- Staff filters return correct reservations for date ranges, catering, upcoming events, and past events.
 - Reminder logic identifies incomplete reservations within the configured reminder window.
-- DAO methods can be tested independently from route handlers.
+- Frontend booking dialog submits valid data and displays conflicts/errors.
+- Frontend staff dashboard login, filters, and status actions work end-to-end.
 
 ## Test Data
 
@@ -296,10 +317,8 @@ When automated tests are added, they should use a separate database name such as
 
 ## Known Test Gaps
 
-- Automated tests currently focus on `POST /reservations` and `GET /reservations`.
 - No frontend interaction tests exist yet.
-- Date and time formats plus setup/start/end ordering are validated, but reservation conflict detection is not implemented yet.
-- Reservation conflict detection is not implemented yet.
-- Staff authentication and authorization are not implemented yet.
-- Reminder behavior is not implemented yet.
-- DAO tests are not possible yet because the DAO layer is not implemented.
+- Reminder behavior is not implemented or tested yet.
+- The frontend staff dashboard is not implemented or tested yet.
+- Docker Compose startup, backup/restore, and MongoDB persistence still rely on
+  manual verification.

@@ -97,8 +97,45 @@ class MockRoomsCollection:
         return AsyncCursor(docs)
 
 
+class MockUsersCollection:
+    def __init__(self, seed: list[dict] | None = None):
+        self.documents: list[dict] = list(seed) if seed else []
+        self.next_id = 1
+        self.insert_one = AsyncMock(side_effect=self._insert_one)
+        self.find_one = AsyncMock(side_effect=self._find_one)
+
+    def _insert_one(self, doc: dict) -> SimpleNamespace:
+        inserted_id = doc.get("_id") or f"user-{self.next_id}"
+        self.next_id += 1
+        self.documents.append({**doc, "_id": inserted_id})
+        return SimpleNamespace(inserted_id=inserted_id)
+
+    def _find_one(self, query: dict) -> dict | None:
+        return next((doc for doc in self.documents if matches_query(doc, query)), None)
+
+    def find(self, query: dict | None = None) -> AsyncCursor:
+        docs = (
+            list(self.documents)
+            if not query
+            else [doc for doc in self.documents if matches_query(doc, query)]
+        )
+        return AsyncCursor(docs)
+
+
+def get_nested_value(doc: dict, field: str) -> object:
+    current: object = doc
+    for part in field.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
 def matches_query(doc: dict, query: dict) -> bool:
-    return all(matches_condition(doc.get(field), expected) for field, expected in query.items())
+    return all(
+        matches_condition(get_nested_value(doc, field), expected)
+        for field, expected in query.items()
+    )
 
 
 def matches_condition(actual: object, expected: object) -> bool:
@@ -114,6 +151,10 @@ def matches_operator(actual: object, operator: str, expected: object) -> bool:
         return actual < expected
     if operator == "$gt":
         return actual > expected
+    if operator == "$lte":
+        return actual <= expected
+    if operator == "$gte":
+        return actual >= expected
     if operator == "$eq":
         return actual == expected
     if operator == "$ne":

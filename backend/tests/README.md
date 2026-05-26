@@ -5,6 +5,13 @@ required — `conftest.py` stubs `app.db` so every test runs in-process
 against an in-memory fake collection (see `MockReservationsCollection`
 in `test_reservations.py`).
 
+Latest result:
+
+```bash
+pytest -q
+# 58 passed, 1 warning
+```
+
 ## Running
 
 From the repository root:
@@ -44,10 +51,8 @@ pytest -v
 | Double-booking prevention         | `test_reservations.py`     | active   |
 | Adjacent-booking allowed          | `test_reservations.py`     | active   |
 | Listing reservations              | `test_reservations.py`     | active   |
-| Edit deadline behavior            | `test_edit_deadline.py`    | skipped¹ |
-| Staff-protected routes            | `test_staff_routes.py`     | skipped¹ |
-
-¹ Skipped at the module level until the corresponding routes exist
-(`PUT/PATCH /reservations/{id}` for edits, a staff-auth dependency for
-protected actions). Each skip includes a reason; un-skip when the
-feature lands.
+| Reservation filters               | `test_reservations.py`     | active   |
+| Structured validation errors      | `test_validation_errors.py`| active   |
+| Edit deadline behavior            | `test_edit_deadline.py`    | active   |
+| Staff auth routes                 | `test_auth_routes.py`      | active   |
+| Staff-protected routes            | `test_staff_routes.py`     | active   |

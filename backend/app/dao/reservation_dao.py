@@ -36,9 +36,9 @@ class ReservationDAO:
     async def get_by_edit_token(self, token: str) -> Optional[dict]:
         return await self.collection.find_one({"edit_token": token})
 
-    async def list_all(self) -> list[dict]:
+    async def list_all(self, filters: Optional[dict] = None) -> list[dict]:
         items: list[dict] = []
-        cursor = self.collection.find().sort("created_at", -1)
+        cursor = self.collection.find(filters or {}).sort("created_at", -1)
         async for item in cursor:
             items.append(item)
         return items

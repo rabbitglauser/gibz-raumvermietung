@@ -255,6 +255,106 @@ def test_list_reservations_returns_typed_items(client):
     assert body["items"][0]["contact"]["email"]
 
 
+def test_list_reservations_filters_by_date_range(client):
+    early = valid_payload()
+    early["date"] = "2026-06-10"
+    early["event_name"] = "Early"
+    middle = valid_payload()
+    middle["date"] = "2026-06-15"
+    middle["event_name"] = "Middle"
+    late = valid_payload()
+    late["date"] = "2026-06-20"
+    late["event_name"] = "Late"
+
+    assert client.post("/reservations", json=early).status_code == 201
+    assert client.post("/reservations", json=middle).status_code == 201
+    assert client.post("/reservations", json=late).status_code == 201
+
+    from_response = client.get(
+        "/reservations",
+        params={"from_date": "2026-06-12"},
+    )
+    to_response = client.get(
+        "/reservations",
+        params={"to_date": "2026-06-18"},
+    )
+    range_response = client.get(
+        "/reservations",
+        params={"from_date": "2026-06-12", "to_date": "2026-06-18"},
+    )
+
+    assert from_response.status_code == 200
+    assert {item["event_name"] for item in from_response.json()["items"]} == {
+        "Middle",
+        "Late",
+    }
+    assert to_response.status_code == 200
+    assert {item["event_name"] for item in to_response.json()["items"]} == {
+        "Early",
+        "Middle",
+    }
+    assert range_response.status_code == 200
+    assert [item["event_name"] for item in range_response.json()["items"]] == [
+        "Middle"
+    ]
+
+
+def test_list_reservations_filters_by_catering_flag(client):
+    with_catering = valid_payload()
+    with_catering["date"] = "2026-06-15"
+    with_catering["event_name"] = "With Catering"
+    without_catering = valid_payload()
+    without_catering["date"] = "2026-06-16"
+    without_catering["event_name"] = "Without Catering"
+    without_catering["catering"] = {"needed": False}
+
+    assert client.post("/reservations", json=with_catering).status_code == 201
+    assert client.post("/reservations", json=without_catering).status_code == 201
+
+    true_response = client.get("/reservations", params={"has_catering": "true"})
+    false_response = client.get("/reservations", params={"has_catering": "false"})
+
+    assert true_response.status_code == 200
+    assert [item["event_name"] for item in true_response.json()["items"]] == [
+        "With Catering"
+    ]
+    assert false_response.status_code == 200
+    assert [item["event_name"] for item in false_response.json()["items"]] == [
+        "Without Catering"
+    ]
+
+
+def test_list_reservations_filters_upcoming_and_past(client):
+    past_payload = valid_payload()
+    past_payload["date"] = "2000-01-01"
+    past_payload["event_name"] = "Past"
+    upcoming_payload = valid_payload()
+    upcoming_payload["date"] = "2099-01-01"
+    upcoming_payload["event_name"] = "Upcoming"
+
+    assert client.post("/reservations", json=past_payload).status_code == 201
+    assert client.post("/reservations", json=upcoming_payload).status_code == 201
+
+    upcoming_response = client.get("/reservations", params={"upcoming": "true"})
+    past_response = client.get("/reservations", params={"past": "true"})
+
+    assert upcoming_response.status_code == 200
+    assert [item["event_name"] for item in upcoming_response.json()["items"]] == [
+        "Upcoming"
+    ]
+    assert past_response.status_code == 200
+    assert [item["event_name"] for item in past_response.json()["items"]] == ["Past"]
+
+
+def test_list_reservations_rejects_conflicting_relative_filters(client):
+    response = client.get(
+        "/reservations",
+        params={"upcoming": "true", "past": "true"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_room_specific_capacity_validation(client):
     payload = valid_payload()
     payload["room"] = "seminarraum-2-112"

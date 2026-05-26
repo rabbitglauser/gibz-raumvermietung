@@ -52,8 +52,32 @@ class ReservationService:
             raise RuntimeError("Reservation was not created")
         return reservation_to_response(created)
 
-    async def list_all(self) -> list[dict]:
-        docs = await self.dao.list_all()
+    async def list_all(
+        self,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
+        has_catering: Optional[bool] = None,
+        upcoming: Optional[bool] = None,
+        past: Optional[bool] = None,
+    ) -> list[dict]:
+        filters: dict = {}
+        date_filter: dict = {}
+        if from_date is not None:
+            date_filter["$gte"] = from_date.isoformat()
+        if to_date is not None:
+            date_filter["$lte"] = to_date.isoformat()
+        if upcoming:
+            date_filter["$gte"] = max(
+                date_filter.get("$gte", date.min.isoformat()), date.today().isoformat()
+            )
+        if past:
+            date_filter["$lt"] = date.today().isoformat()
+        if date_filter:
+            filters["date"] = date_filter
+        if has_catering is not None:
+            filters["catering.needed"] = has_catering
+
+        docs = await self.dao.list_all(filters)
         return [reservation_to_response(doc) for doc in docs]
 
     async def get_by_id(self, reservation_id: str) -> Optional[dict]:

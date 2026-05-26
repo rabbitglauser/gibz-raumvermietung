@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from .config import settings
 from .db import ping_db
+from .routers.auth import router as auth_router
 from .routers.reservations import router as reservations_router
 from .routers.rooms import router as rooms_router
 
@@ -58,6 +59,7 @@ app.add_middleware(
 
 app.include_router(reservations_router)
 app.include_router(rooms_router)
+app.include_router(auth_router)
 
 
 @app.exception_handler(RequestValidationError)

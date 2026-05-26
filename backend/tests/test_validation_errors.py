@@ -2,7 +2,14 @@
 
 from fastapi.testclient import TestClient
 
+from app.db import get_database
 from app.main import app
+
+from .mocks import MockReservationsCollection
+
+
+def _fake_db():
+    return type("FakeDB", (), {"reservations": MockReservationsCollection()})()
 
 
 def _valid_payload() -> dict:
@@ -34,8 +41,12 @@ def test_validation_error_response_has_structured_detail():
     payload = _valid_payload()
     del payload["event_name"]
 
+    app.dependency_overrides[get_database] = _fake_db
     with TestClient(app) as client:
-        response = client.post("/reservations", json=payload)
+        try:
+            response = client.post("/reservations", json=payload)
+        finally:
+            app.dependency_overrides.clear()
 
     assert response.status_code == 422
     detail = response.json()["detail"]
@@ -51,8 +62,12 @@ def test_validation_error_uses_german_label_for_email():
     payload = _valid_payload()
     payload["contact"]["email"] = "not-an-email"
 
+    app.dependency_overrides[get_database] = _fake_db
     with TestClient(app) as client:
-        response = client.post("/reservations", json=payload)
+        try:
+            response = client.post("/reservations", json=payload)
+        finally:
+            app.dependency_overrides.clear()
 
     assert response.status_code == 422
     detail = response.json()["detail"]
@@ -66,8 +81,12 @@ def test_validation_error_contains_field_path():
     payload["start_time"] = "12:00"
     payload["end_time"] = "09:00"
 
+    app.dependency_overrides[get_database] = _fake_db
     with TestClient(app) as client:
-        response = client.post("/reservations", json=payload)
+        try:
+            response = client.post("/reservations", json=payload)
+        finally:
+            app.dependency_overrides.clear()
 
     assert response.status_code == 422
     detail = response.json()["detail"]
