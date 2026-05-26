@@ -222,6 +222,7 @@ class ReservationCreate(BaseModel):
 class ReservationOut(ReservationCreate):
     id: str
     status: ReservationStatus
+    edit_token: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -249,6 +250,7 @@ def reservation_to_response(doc: dict) -> dict:
         "remarks": doc.get("remarks"),
         "terms_accepted": doc["terms_accepted"],
         "status": doc["status"],
+        "edit_token": doc.get("edit_token"),
         "created_at": doc["created_at"],
         "updated_at": doc["updated_at"],
     }
