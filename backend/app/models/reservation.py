@@ -11,6 +11,9 @@ from .enums import (
     SeatingType,
 )
 
+BOOKING_WINDOW_START = time(7, 0)   # earliest allowed setup_start_time
+BOOKING_WINDOW_END = time(22, 0)    # latest allowed end_time
+
 
 # Per-room rule table. Edit this when adding/changing a room — do not add
 # room-specific branches in handlers, services, or DAOs.
@@ -76,14 +79,14 @@ ROOM_RULES = {
 def _validate_room_capacity(payload: "ReservationCreate", rules: dict) -> None:
     if payload.attendee_count > rules["capacity"]:
         raise ValueError(
-            f"{payload.room.value} supports at most {rules['capacity']} attendees"
+            f"Dieser Raum fasst maximal {rules['capacity']} Personen"
         )
 
 
 def _validate_room_seating(payload: "ReservationCreate", rules: dict) -> None:
     if payload.setup.seating_type not in rules["seating_types"]:
         raise ValueError(
-            f"{payload.setup.seating_type.value} seating is not supported for {payload.room.value}"
+            f"Die Bestuhlung «{payload.setup.seating_type.value}» ist für diesen Raum nicht verfügbar"
         )
 
 
@@ -92,18 +95,16 @@ def _validate_room_equipment(payload: "ReservationCreate", rules: dict) -> None:
     unsupported_equipment = requested_equipment - rules["equipment"]
     if unsupported_equipment:
         names = ", ".join(sorted(item.value for item in unsupported_equipment))
-        raise ValueError(f"Unsupported equipment for {payload.room.value}: {names}")
+        raise ValueError(f"Folgendes Material ist in diesem Raum nicht verfügbar: {names}")
 
 
 def _validate_room_services(payload: "ReservationCreate", rules: dict) -> None:
     if payload.setup.microphone_needed and not rules["microphone"]:
-        raise ValueError(f"Microphones are not supported for {payload.room.value}")
+        raise ValueError("Eine Mikrofonanlage ist in diesem Raum nicht verfügbar")
     if payload.setup.technical_support_hours and not rules["technical_support"]:
-        raise ValueError(
-            f"Technical support hours are not supported for {payload.room.value}"
-        )
+        raise ValueError("Technischer Support ist in diesem Raum nicht verfügbar")
     if payload.setup.regie_hours and payload.room != RoomId.aula_1_005:
-        raise ValueError(f"Regie hours are only supported for {RoomId.aula_1_005.value}")
+        raise ValueError("Regie-Stunden sind nur in der Aula verfügbar")
 
 
 def validate_room_rules(payload: "ReservationCreate") -> None:
@@ -138,9 +139,9 @@ class CateringWindow(BaseModel):
         if not self.enabled:
             return self
         if self.from_time is None or self.to_time is None:
-            raise ValueError("enabled catering windows require from_time and to_time")
+            raise ValueError("Für aktivierte Verpflegungsfenster müssen Von- und Bis-Zeit angegeben werden")
         if self.from_time >= self.to_time:
-            raise ValueError("catering from_time must be before to_time")
+            raise ValueError("Die Von-Zeit muss vor der Bis-Zeit liegen")
         return self
 
 
@@ -161,7 +162,7 @@ class CateringInfo(BaseModel):
                 self.after_event.enabled,
             )
         ):
-            raise ValueError("needed catering requires at least one enabled time window")
+            raise ValueError("Wenn Verpflegung benötigt wird, muss mindestens ein Zeitfenster aktiviert sein")
         return self
 
 
@@ -205,15 +206,26 @@ class ReservationCreate(BaseModel):
     @classmethod
     def validate_terms_accepted(cls, value: bool) -> bool:
         if not value:
-            raise ValueError("terms_accepted must be true")
+            raise ValueError("AGB müssen akzeptiert werden")
         return value
 
     @model_validator(mode="after")
     def validate_business_rules(self) -> "ReservationCreate":
         if self.setup_start_time > self.start_time:
-            raise ValueError("setup_start_time must be before or equal to start_time")
+            raise ValueError("Aufbauzeit darf nicht nach der Startzeit liegen")
+
         if self.start_time >= self.end_time:
-            raise ValueError("start_time must be before end_time")
+            raise ValueError("Startzeit muss vor der Endzeit liegen")
+
+        if self.setup_start_time < BOOKING_WINDOW_START:
+            raise ValueError(
+                f"Reservationen können nicht vor {BOOKING_WINDOW_START.strftime('%H:%M')} beginnen"
+            )
+
+        if self.end_time > BOOKING_WINDOW_END:
+            raise ValueError(
+                f"Reservationen können nicht nach {BOOKING_WINDOW_END.strftime('%H:%M')} enden"
+            )
 
         validate_room_rules(self)
         return self
@@ -222,6 +234,7 @@ class ReservationCreate(BaseModel):
 class ReservationOut(ReservationCreate):
     id: str
     status: ReservationStatus
+    edit_token: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -249,6 +262,7 @@ def reservation_to_response(doc: dict) -> dict:
         "remarks": doc.get("remarks"),
         "terms_accepted": doc["terms_accepted"],
         "status": doc["status"],
+        "edit_token": doc.get("edit_token"),
         "created_at": doc["created_at"],
         "updated_at": doc["updated_at"],
     }
