@@ -116,4 +116,6 @@ def matches_operator(actual: object, operator: str, expected: object) -> bool:
         return actual > expected
     if operator == "$eq":
         return actual == expected
+    if operator == "$ne":
+        return actual != expected
     raise AssertionError(f"Unsupported fake Mongo operator: {operator}")
