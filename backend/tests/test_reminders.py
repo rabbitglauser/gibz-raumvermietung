@@ -10,10 +10,15 @@ from app.config import settings
 from app.db import get_database
 from app.routers.reminders import router as reminders_router
 from app.services.auth_service import create_auth_token
-from app.services.reminder_service import ReminderService, find_missing_details
-from app.dao.reservation_dao import ReservationDAO
+from app.services.reminder_service import (
+    ReminderConfigurationError,
+    ReminderService,
+    find_missing_details,
+)
+from app.services import reminder_scheduler
+from app.dao.reservation_dao import ReminderLogDAO, ReservationDAO
 
-from .mocks import MockReservationsCollection
+from .mocks import MockReminderLogCollection, MockReservationsCollection
 
 app = FastAPI()
 app.include_router(reminders_router)
@@ -85,13 +90,15 @@ def test_reminder_service_sends_and_marks_reservation(monkeypatch):
     configure_smtp(monkeypatch)
     collection = MockReservationsCollection()
     collection.documents.append(reservation_doc())
+    log_collection = MockReminderLogCollection()
     sent_messages = []
 
     def fake_send(message):
         sent_messages.append(message)
 
     monkeypatch.setattr("app.services.reminder_service._send_email", fake_send)
-    service = ReminderService(ReservationDAO(SimpleNamespace(reservations=collection)))
+    database = SimpleNamespace(reservations=collection, reminder_log=log_collection)
+    service = ReminderService(ReservationDAO(database), ReminderLogDAO(database))
 
     result = asyncio.run(service.run())
 
@@ -100,11 +107,94 @@ def test_reminder_service_sends_and_marks_reservation(monkeypatch):
     assert sent_messages[0]["To"] == "test@example.com"
     assert collection.documents[0]["reminder_count"] == 1
     assert collection.documents[0]["reminder_sent_at"] is not None
+    assert len(log_collection.documents) == 1
+    entry = log_collection.documents[0]
+    assert entry["status"] == "sent"
+    assert entry["reservation_id"] == "reservation-1"
+    assert "Material und Technik" in entry["missing_fields"]
+
+
+def test_reminder_service_logs_error_when_send_fails(monkeypatch):
+    configure_smtp(monkeypatch)
+    collection = MockReservationsCollection()
+    collection.documents.append(reservation_doc())
+    log_collection = MockReminderLogCollection()
+
+    def boom(message):
+        raise RuntimeError("smtp down")
+
+    monkeypatch.setattr("app.services.reminder_service._send_email", boom)
+    database = SimpleNamespace(reservations=collection, reminder_log=log_collection)
+    service = ReminderService(ReservationDAO(database), ReminderLogDAO(database))
+
+    result = asyncio.run(service.run())
+
+    assert result.sent == 0
+    assert len(result.errors) == 1
+    assert collection.documents[0].get("reminder_sent_at") is None
+    assert len(log_collection.documents) == 1
+    entry = log_collection.documents[0]
+    assert entry["status"] == "error"
+    assert "smtp down" in entry["error"]
+
+
+def test_reminder_service_skips_already_sent_reservation(monkeypatch):
+    configure_smtp(monkeypatch)
+    collection = MockReservationsCollection()
+    collection.documents.append(
+        reservation_doc(reminder_sent_at=datetime.now(timezone.utc), reminder_count=1)
+    )
+    log_collection = MockReminderLogCollection()
+    monkeypatch.setattr(
+        "app.services.reminder_service._send_email",
+        lambda message: pytest.fail("must not send"),
+    )
+    database = SimpleNamespace(reservations=collection, reminder_log=log_collection)
+    service = ReminderService(ReservationDAO(database), ReminderLogDAO(database))
+
+    result = asyncio.run(service.run())
+
+    assert result.sent == 0
+    assert result.skipped == 1
+    assert len(log_collection.documents) == 1
+    assert log_collection.documents[0]["status"] == "skipped"
+    assert log_collection.documents[0]["error"] == "already_sent"
+
+
+def test_scheduler_tick_tolerates_missing_smtp(monkeypatch):
+    monkeypatch.setattr(settings, "smtp_host", None)
+    monkeypatch.setattr(settings, "smtp_from_email", None)
+    collection = MockReservationsCollection()
+    collection.documents.append(reservation_doc())
+    log_collection = MockReminderLogCollection()
+    database = SimpleNamespace(reservations=collection, reminder_log=log_collection)
+
+    asyncio.run(reminder_scheduler.run_one_tick(database))
+
+    assert log_collection.documents == []
+
+
+def test_scheduler_tick_sends_and_logs(monkeypatch):
+    configure_smtp(monkeypatch)
+    collection = MockReservationsCollection()
+    collection.documents.append(reservation_doc())
+    log_collection = MockReminderLogCollection()
+    sent: list = []
+    monkeypatch.setattr(
+        "app.services.reminder_service._send_email", lambda message: sent.append(message)
+    )
+    database = SimpleNamespace(reservations=collection, reminder_log=log_collection)
+
+    asyncio.run(reminder_scheduler.run_one_tick(database))
+
+    assert len(sent) == 1
+    assert log_collection.documents[0]["status"] == "sent"
 
 
 def test_reminder_endpoint_requires_staff():
     app.dependency_overrides[get_database] = lambda: SimpleNamespace(
-        reservations=MockReservationsCollection()
+        reservations=MockReservationsCollection(),
+        reminder_log=MockReminderLogCollection(),
     )
     try:
         with TestClient(app) as client:
@@ -121,7 +211,8 @@ def test_reminder_endpoint_returns_config_error_for_missing_smtp(monkeypatch):
     collection = MockReservationsCollection()
     collection.documents.append(reservation_doc())
     app.dependency_overrides[get_database] = lambda: SimpleNamespace(
-        reservations=collection
+        reservations=collection,
+        reminder_log=MockReminderLogCollection(),
     )
     try:
         with TestClient(app) as client:
@@ -156,7 +247,8 @@ def test_reminder_endpoint_sends_with_mocked_smtp(monkeypatch):
 
     monkeypatch.setattr("app.services.reminder_service.smtplib.SMTP", FakeSMTP)
     app.dependency_overrides[get_database] = lambda: SimpleNamespace(
-        reservations=collection
+        reservations=collection,
+        reminder_log=MockReminderLogCollection(),
     )
     try:
         with TestClient(app) as client:

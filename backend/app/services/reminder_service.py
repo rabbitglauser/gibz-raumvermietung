@@ -5,7 +5,7 @@ import smtplib
 from pydantic import BaseModel, Field
 
 from ..config import settings
-from ..dao.reservation_dao import ReservationDAO
+from ..dao.reservation_dao import ReminderLogDAO, ReservationDAO
 
 
 class ReminderConfigurationError(Exception):
@@ -105,8 +105,30 @@ def _send_email(message: EmailMessage) -> None:
 
 
 class ReminderService:
-    def __init__(self, dao: ReservationDAO) -> None:
+    def __init__(
+        self,
+        dao: ReservationDAO,
+        log_dao: ReminderLogDAO | None = None,
+    ) -> None:
         self.dao = dao
+        self.log_dao = log_dao
+
+    async def _log(
+        self,
+        reservation_id: str,
+        status: str,
+        *,
+        missing_fields: list[str] | None = None,
+        error: str | None = None,
+    ) -> None:
+        if self.log_dao is None:
+            return
+        await self.log_dao.record(
+            reservation_id=reservation_id,
+            status=status,
+            missing_fields=missing_fields,
+            error=error,
+        )
 
     async def run(self, today: date | None = None) -> ReminderRunResult:
         if not _smtp_configured():
@@ -122,27 +144,44 @@ class ReminderService:
         result = ReminderRunResult(checked=len(docs))
 
         for doc in docs:
+            reservation_id = str(doc.get("_id"))
+
             if doc.get("reminder_sent_at"):
                 result.skipped += 1
+                await self._log(reservation_id, "skipped", error="already_sent")
                 continue
 
             missing = find_missing_details(doc)
             if not missing:
                 result.skipped += 1
+                await self._log(reservation_id, "skipped", error="complete")
                 continue
 
             if not doc.get("edit_token"):
                 result.skipped += 1
-                result.errors.append(f"{doc.get('_id')}: missing edit token")
+                result.errors.append(f"{reservation_id}: missing edit token")
+                await self._log(
+                    reservation_id,
+                    "error",
+                    missing_fields=missing,
+                    error="missing edit token",
+                )
                 continue
 
             try:
                 _send_email(_build_message(doc, missing))
             except Exception as exc:
-                result.errors.append(f"{doc.get('_id')}: {exc}")
+                result.errors.append(f"{reservation_id}: {exc}")
+                await self._log(
+                    reservation_id,
+                    "error",
+                    missing_fields=missing,
+                    error=str(exc),
+                )
                 continue
 
-            await self.dao.mark_reminder_sent(str(doc["_id"]))
+            await self.dao.mark_reminder_sent(reservation_id)
             result.sent += 1
+            await self._log(reservation_id, "sent", missing_fields=missing)
 
         return result

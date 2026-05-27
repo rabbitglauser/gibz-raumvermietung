@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,6 +14,7 @@ from .routers.reminders import router as reminders_router
 from .routers.reservations import router as reservations_router
 from .routers.rooms import router as rooms_router
 from .services.auth_service import seed_demo_staff_user
+from .services.reminder_scheduler import start_reminder_scheduler
 
 _FIELD_LABELS: dict[str, str] = {
     "event_name": "Veranstaltungsname",
@@ -48,9 +51,18 @@ async def lifespan(app: FastAPI):
     app.state.db_ok = await ping_db()
     if app.state.db_ok:
         app.state.demo_staff_seeded = await seed_demo_staff_user(get_database())
+        app.state.reminder_task = start_reminder_scheduler(get_database())
     else:
         app.state.demo_staff_seeded = False
-    yield
+        app.state.reminder_task = None
+    try:
+        yield
+    finally:
+        task = getattr(app.state, "reminder_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)

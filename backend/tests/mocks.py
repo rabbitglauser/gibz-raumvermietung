@@ -97,6 +97,24 @@ class MockRoomsCollection:
         return AsyncCursor(docs)
 
 
+class MockReminderLogCollection:
+    def __init__(self):
+        self.documents: list[dict] = []
+        self.insert_one = AsyncMock(side_effect=self._insert_one)
+
+    def _insert_one(self, doc: dict) -> SimpleNamespace:
+        self.documents.append(dict(doc))
+        return SimpleNamespace(inserted_id=None)
+
+    def find(self, query: dict | None = None) -> AsyncCursor:
+        docs = (
+            list(self.documents)
+            if not query
+            else [doc for doc in self.documents if matches_query(doc, query)]
+        )
+        return AsyncCursor(docs)
+
+
 class MockUsersCollection:
     def __init__(self, seed: list[dict] | None = None):
         self.documents: list[dict] = list(seed) if seed else []

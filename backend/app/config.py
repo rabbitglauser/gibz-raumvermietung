@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     seed_staff_name: str = "Demo Secretariat"
     seed_staff_email: str = "secretariat@example.com"
     reminder_days_before: int = 7
+    reminder_scheduler_enabled: bool = False
+    reminder_scheduler_interval_seconds: int = 86400
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None

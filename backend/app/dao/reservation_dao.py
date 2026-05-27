@@ -127,3 +127,37 @@ class ReservationDAO:
             },
         )
         return await self.get_by_id(reservation_id)
+
+
+class ReminderLogDAO:
+    """Append-only audit log for reminder send attempts."""
+
+    def __init__(self, database) -> None:
+        self.collection = database.reminder_log
+
+    async def record(
+        self,
+        *,
+        reservation_id: str,
+        status: str,
+        missing_fields: Optional[list[str]] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        await self.collection.insert_one(
+            {
+                "reservation_id": reservation_id,
+                "status": status,
+                "missing_fields": list(missing_fields or []),
+                "error": error,
+                "attempted_at": datetime.now(timezone.utc),
+            }
+        )
+
+    async def list_for_reservation(self, reservation_id: str) -> list[dict]:
+        items: list[dict] = []
+        cursor = self.collection.find({"reservation_id": reservation_id}).sort(
+            "attempted_at", 1
+        )
+        async for item in cursor:
+            items.append(item)
+        return items
