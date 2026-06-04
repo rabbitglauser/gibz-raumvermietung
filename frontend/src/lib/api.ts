@@ -108,13 +108,12 @@ export interface ReservationCreate {
 export interface Reservation extends ReservationCreate {
   id: string;
   status: ReservationStatus;
+  // Only present on the create response — used to build the customer edit link.
   edit_token?: string | null;
   reminder_sent_at?: string | null;
   reminder_count?: number;
   created_at: string;
   updated_at: string;
-  // Only present on the create response — used to build the customer edit link.
-  edit_token?: string;
 }
 
 export interface AvailabilitySlot {
@@ -122,25 +121,6 @@ export interface AvailabilitySlot {
   date: string;
   setup_start_time: string;
   end_time: string;
-}
-
-export interface StaffUser {
-  id: string;
-  username: string;
-  role: "staff" | "secretariat" | "hausdienst" | "restaurant_treff" | "admin";
-  name: string;
-  email: string;
-  created_at?: string | null;
-}
-
-export interface ReservationFilters {
-  date_from?: string;
-  date_to?: string;
-  has_catering?: boolean;
-  upcoming?: boolean;
-  past?: boolean;
-  status?: ReservationStatus;
-  q?: string;
 }
 
 export interface RoomContact {
@@ -360,111 +340,4 @@ export async function updateReservationByToken(
       message: err instanceof Error ? err.message : "Netzwerkfehler",
     };
   }
-}
-
-// --- Staff auth ------------------------------------------------------------
-
-export async function loginStaff(
-  username: string,
-  password: string,
-): Promise<{ ok: true; user: StaffUser } | { ok: false; message: string }> {
-  if (!API_BASE_URL) return { ok: false, message: "API nicht konfiguriert" };
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ username, password }),
-    });
-    if (res.ok) return { ok: true, user: (await res.json()) as StaffUser };
-    return { ok: false, message: await parseError(res) };
-  } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Netzwerkfehler",
-    };
-  }
-}
-
-export async function logoutStaff(): Promise<void> {
-  if (!API_BASE_URL) return;
-  try {
-    await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-  } catch {
-    // ignore
-  }
-}
-
-export async function getMe(): Promise<StaffUser | null> {
-  if (!API_BASE_URL) return null;
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as StaffUser;
-  } catch {
-    return null;
-  }
-}
-
-// --- Staff reservation management ------------------------------------------
-
-export async function listReservations(
-  filters: ReservationFilters = {},
-): Promise<{ items: Reservation[]; status: number }> {
-  if (!API_BASE_URL) return { items: [], status: 0 };
-  const url = new URL(`${API_BASE_URL}/reservations`);
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, String(value));
-    }
-  }
-  const res = await fetch(url.toString(), {
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!res.ok) return { items: [], status: res.status };
-  const body = (await res.json()) as { items?: Reservation[] };
-  return { items: body.items ?? [], status: res.status };
-}
-
-export async function updateReservation(
-  id: string,
-  patch: Partial<ReservationCreate> & { status?: ReservationStatus },
-): Promise<UpdateResult> {
-  if (!API_BASE_URL) {
-    return { ok: false, status: 0, message: "API nicht konfiguriert" };
-  }
-  try {
-    const res = await fetch(`${API_BASE_URL}/reservations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) return { ok: true, data: (await res.json()) as Reservation };
-    return { ok: false, status: res.status, message: await parseError(res) };
-  } catch (err) {
-    return {
-      ok: false,
-      status: 0,
-      message: err instanceof Error ? err.message : "Netzwerkfehler",
-    };
-  }
-}
-
-export async function deleteReservation(
-  id: string,
-): Promise<{ ok: boolean; status: number }> {
-  if (!API_BASE_URL) return { ok: false, status: 0 };
-  const res = await fetch(`${API_BASE_URL}/reservations/${id}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
-  return { ok: res.status === 204, status: res.status };
 }

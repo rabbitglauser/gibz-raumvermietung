@@ -20,6 +20,7 @@ import {
   type CreateResult,
   type ValidationError,
 } from "@/lib/reservations";
+import { assetPath } from "@/lib/utils";
 
 type ResultEntry = {
   iso: string;
@@ -27,6 +28,7 @@ type ResultEntry = {
   state: "pending" | "ok" | "conflict" | "error";
   message?: string;
   id?: string;
+  editToken?: string;
   validationErrors?: ValidationError[];
 };
 
@@ -68,7 +70,7 @@ export function StepReview({ form }: StepReviewProps) {
             date: d,
             state: "ok",
             id: r.data.id,
-            editToken: r.data.edit_token,
+            editToken: r.data.edit_token ?? undefined,
           };
         }
         if (r.status === 409) {
@@ -175,9 +177,9 @@ export function StepReview({ form }: StepReviewProps) {
                   </span>{" "}
                   <a
                     className="underline"
-                    href={`/reservation/edit/?token=${r.editToken}`}
+                    href={assetPath(`/reservation/edit/?token=${r.editToken}`)}
                   >
-                    /reservation/edit/?token={r.editToken}
+                    {assetPath(`/reservation/edit/?token=${r.editToken}`)}
                   </a>
                 </li>
               ))}
