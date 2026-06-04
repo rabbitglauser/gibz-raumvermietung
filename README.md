@@ -27,6 +27,18 @@ Web application for the GIBZ room reservation project in Module 165, using a Nex
 
 The project replaces the PDF-based room reservation workflow with an API-backed web application. The current implementation focuses on the backend reservation API and the Dockerized project setup.
 
+# Links for the website
+
+users: https://rabbitglauser.github.io/gibz-raumvermietung/raeume/
+
+admin: https://rabbitglauser.github.io/gibz-raumvermietung/staff/
+
+admin login
+
+staff
+
+
+
 ## Current Features
 
 - Docker Compose setup for MongoDB, backend, and frontend.
