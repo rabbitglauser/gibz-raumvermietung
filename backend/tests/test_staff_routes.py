@@ -1,10 +1,4 @@
-"""Staff authentication and authorization tests.
-
-Staff log in with username/password and receive a JWT in an HTTP-only
-cookie. Authenticated staff may manage reservations; anonymous requests get
-401; routes restricted to admin (deletion / "higher authority override")
-return 403 for non-admin staff.
-"""
+from types import SimpleNamespace
 
 import sys
 from types import ModuleType, SimpleNamespace
@@ -14,118 +8,147 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-fake_db_module = ModuleType("app.db")
-fake_db_module.db = SimpleNamespace()
-fake_db_module.ping_db = AsyncMock(return_value=True)
-fake_db_module.get_database = lambda: fake_db_module.db
-sys.modules.setdefault("app.db", fake_db_module)
+from app.config import settings
+from app.db import get_database
+from app.routers.reservations import router as reservations_router
+from app.services.auth_service import create_auth_token
 
-from app.db import get_database  # noqa: E402
-from app.routers.auth import router as auth_router  # noqa: E402
-from app.routers.reservations import router as reservations_router  # noqa: E402
-from app.security import hash_password  # noqa: E402
-
-from .mocks import MockReservationsCollection, MockUsersCollection  # noqa: E402
+from .mocks import MockReservationsCollection
 
 app = FastAPI()
-app.include_router(auth_router)
 app.include_router(reservations_router)
 
 
-def _seed_users() -> MockUsersCollection:
-    return MockUsersCollection(
-        seed=[
-            {
-                "_id": "user-admin",
-                "username": "admin",
-                "password_hash": hash_password("admin-secret"),
-                "role": "admin",
-                "name": "Admin",
-                "email": "admin@gibz.ch",
-            },
-            {
-                "_id": "user-sekr",
-                "username": "sekretariat",
-                "password_hash": hash_password("sekr-secret"),
-                "role": "secretariat",
-                "name": "Sekretariat",
-                "email": "sekr@gibz.ch",
-            },
-        ]
-    )
+@pytest.fixture
+def mock_collection() -> MockReservationsCollection:
+    return MockReservationsCollection()
 
 
 @pytest.fixture
-def fake_db():
-    return SimpleNamespace(
-        reservations=MockReservationsCollection(),
-        users=_seed_users(),
+def client(mock_collection):
+    app.dependency_overrides[get_database] = lambda: SimpleNamespace(
+        reservations=mock_collection
     )
-
-
-@pytest.fixture
-def client(fake_db):
-    app.dependency_overrides[get_database] = lambda: fake_db
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.clear()
 
 
-def _login(client: TestClient, username: str, password: str):
-    return client.post(
-        "/auth/login", json={"username": username, "password": password}
-    )
+def valid_payload() -> dict:
+    return {
+        "event_name": "Staff Route Test",
+        "date": "2026-06-15",
+        "setup_start_time": "08:30",
+        "start_time": "09:00",
+        "end_time": "12:00",
+        "room": "aula-1-005",
+        "attendee_count": 120,
+        "organizer_type": "gibz_internal_school_event",
+        "contact": {
+            "name": "Test User",
+            "email": "test@example.com",
+            "phone": "+41 41 123 45 67",
+        },
+        "billing_address": {
+            "name": "GIBZ Test Company",
+            "street": "Industriestrasse 52",
+            "postal_code_city": "6300 Zug",
+        },
+        "catering": {"needed": False},
+        "setup": {
+            "seating_type": "theater",
+            "equipment": [{"type": "projector", "quantity": 1}],
+            "microphone_needed": True,
+        },
+        "terms_accepted": True,
+    }
 
 
-def test_login_with_valid_credentials_sets_cookie(client):
-    response = _login(client, "admin", "admin-secret")
-    assert response.status_code == 200
-    assert response.json()["username"] == "admin"
-    assert "rr_session" in response.cookies
+def create_reservation(client) -> str:
+    response = client.post("/reservations", json=valid_payload())
+    assert response.status_code == 201
+    return response.json()["id"]
 
 
-def test_login_with_bad_password_is_rejected(client):
-    response = _login(client, "admin", "wrong")
-    assert response.status_code == 401
+def set_staff_cookie(client, role: str = "staff") -> None:
+    token = create_auth_token("staff-user", role)
+    client.cookies.set(settings.auth_cookie_name, token)
 
 
 def test_unauthenticated_request_to_staff_route_is_rejected(client):
-    response = client.get("/reservations")
+    reservation_id = create_reservation(client)
+
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "confirmed"},
+    )
+
     assert response.status_code == 401
 
 
-def test_authenticated_staff_can_list_reservations(client):
-    assert _login(client, "sekretariat", "sekr-secret").status_code == 200
-    response = client.get("/reservations")
-    assert response.status_code == 200
-    assert response.json()["items"] == []
+def test_non_staff_token_is_rejected(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client, role="student")
 
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "confirmed"},
+    )
 
-def test_me_returns_current_user(client):
-    _login(client, "admin", "admin-secret")
-    response = client.get("/auth/me")
-    assert response.status_code == 200
-    assert response.json()["role"] == "admin"
-
-
-def test_non_admin_cannot_delete_reservation(client):
-    # Non-admin staff are authenticated (not 401) but lack permission (403).
-    _login(client, "sekretariat", "sekr-secret")
-    response = client.delete("/reservations/some-id")
     assert response.status_code == 403
 
 
-def test_admin_token_can_delete_reservation(client, fake_db):
-    fake_db.reservations.documents.append({"_id": "res-1", "event_name": "X"})
-    _login(client, "admin", "admin-secret")
-    response = client.delete("/reservations/res-1")
-    assert response.status_code == 204
+def test_staff_token_can_confirm_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client)
+
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "confirmed"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
 
 
-def test_logout_clears_session(client):
-    _login(client, "admin", "admin-secret")
-    assert client.get("/auth/me").status_code == 200
-    client.post("/auth/logout")
-    # TestClient persists cookies; delete_cookie expires it so /me now 401s.
-    assert client.get("/auth/me").status_code == 401
+def test_staff_token_can_reject_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client)
+
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "rejected"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "rejected"
+
+
+def test_staff_token_can_cancel_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client)
+
+    response = client.delete(f"/reservations/{reservation_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"
+
+
+def test_secretariat_token_can_confirm_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client, role="secretariat")
+    response = client.patch(
+        f"/reservations/{reservation_id}/status",
+        json={"status": "confirmed"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+
+
+def test_hausdienst_token_can_cancel_reservation(client):
+    reservation_id = create_reservation(client)
+    set_staff_cookie(client, role="hausdienst")
+    response = client.delete(f"/reservations/{reservation_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelled"

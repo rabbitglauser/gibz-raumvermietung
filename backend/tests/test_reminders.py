@@ -1,89 +1,170 @@
-"""Reminder selection + send-once tests.
-
-The scheduler itself isn't exercised here; we test the selection rule and
-the run() bookkeeping (mark each reminded reservation so it is reminded at
-most once). SMTP is unconfigured by default, so no real mail is sent.
-"""
-
 import asyncio
-import sys
-from datetime import date, timedelta
-from types import ModuleType, SimpleNamespace
-from unittest.mock import AsyncMock
+from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
-fake_db_module = ModuleType("app.db")
-fake_db_module.db = SimpleNamespace()
-fake_db_module.ping_db = AsyncMock(return_value=True)
-fake_db_module.get_database = lambda: fake_db_module.db
-sys.modules.setdefault("app.db", fake_db_module)
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from app.dao.reservation_dao import ReservationDAO  # noqa: E402
-from app.services.reminder_service import ReminderService  # noqa: E402
+from app.config import settings
+from app.db import get_database
+from app.routers.reminders import router as reminders_router
+from app.services.auth_service import create_auth_token
+from app.services.reminder_service import ReminderService, find_missing_details
+from app.dao.reservation_dao import ReservationDAO
 
-from .mocks import MockReservationsCollection  # noqa: E402
+from .mocks import MockReservationsCollection
 
-TODAY = date(2026, 6, 10)
+app = FastAPI()
+app.include_router(reminders_router)
 
 
-def _doc(_id, days_out, *, needed, window_enabled, seating, reminder_sent=False,
-         status="pending"):
-    event_date = (TODAY + timedelta(days=days_out)).isoformat()
-    return {
-        "_id": _id,
-        "event_name": f"Event {_id}",
-        "date": event_date,
-        "status": status,
-        "reminder_sent": reminder_sent,
-        "edit_token": f"token-{_id}",
-        "contact": {"name": "Kunde", "email": f"{_id}@example.com"},
-        "catering": {
-            "needed": needed,
-            "before_event": {"enabled": window_enabled},
-            "during_event": {"enabled": False},
-            "after_event": {"enabled": False},
+def reservation_doc(**overrides) -> dict:
+    target_date = (date.today() + timedelta(days=1)).isoformat()
+    base = {
+        "_id": "reservation-1",
+        "event_name": "Reminder Test",
+        "date": target_date,
+        "setup_start_time": "08:30:00",
+        "start_time": "09:00:00",
+        "end_time": "12:00:00",
+        "room": "aula-1-005",
+        "attendee_count": 80,
+        "organizer_type": "gibz_internal_school_event",
+        "contact": {
+            "name": "Test User",
+            "email": "test@example.com",
+            "phone": "+41 41 123 45 67",
         },
-        "setup": {"seating_type": seating},
+        "billing_address": {
+            "name": "GIBZ",
+            "street": "Industriestrasse 52",
+            "postal_code_city": "6300 Zug",
+        },
+        "catering": {"needed": False},
+        "setup": {
+            "seating_type": "theater",
+            "equipment": [],
+            "microphone_needed": False,
+        },
+        "publication": None,
+        "remarks": None,
+        "terms_accepted": True,
+        "status": "pending",
+        "edit_token": "edit-token",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
+    base.update(overrides)
+    return base
 
 
-def _service_with(docs):
+def set_staff_cookie(client: TestClient) -> None:
+    token = create_auth_token("staff-user", "staff")
+    client.cookies.set(settings.auth_cookie_name, token)
+
+
+def configure_smtp(monkeypatch):
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_port", 587)
+    monkeypatch.setattr(settings, "smtp_user", None)
+    monkeypatch.setattr(settings, "smtp_password", None)
+    monkeypatch.setattr(settings, "smtp_from_email", "rooms@example.com")
+    monkeypatch.setattr(settings, "smtp_use_tls", False)
+    monkeypatch.setattr(settings, "public_frontend_url", "http://localhost:3000")
+
+
+def test_find_missing_details_detects_setup_and_publication_gaps():
+    missing = find_missing_details(reservation_doc())
+
+    assert "Material und Technik" in missing
+    assert "Publikation" in missing
+
+
+def test_reminder_service_sends_and_marks_reservation(monkeypatch):
+    configure_smtp(monkeypatch)
     collection = MockReservationsCollection()
-    collection.documents.extend(docs)
-    return ReminderService(ReservationDAO(SimpleNamespace(reservations=collection))), collection
+    collection.documents.append(reservation_doc())
+    sent_messages = []
+
+    def fake_send(message):
+        sent_messages.append(message)
+
+    monkeypatch.setattr("app.services.reminder_service._send_email", fake_send)
+    service = ReminderService(ReservationDAO(SimpleNamespace(reservations=collection)))
+
+    result = asyncio.run(service.run())
+
+    assert result.checked == 1
+    assert result.sent == 1
+    assert sent_messages[0]["To"] == "test@example.com"
+    assert collection.documents[0]["reminder_count"] == 1
+    assert collection.documents[0]["reminder_sent_at"] is not None
 
 
-def test_due_reminders_selects_only_incomplete_in_window():
-    due_incomplete = _doc("a", 2, needed=True, window_enabled=False, seating="seminar")
-    complete = _doc("b", 2, needed=True, window_enabled=True, seating="seminar")
-    no_seating = _doc("c", 2, needed=False, window_enabled=False, seating=None)
-    out_of_window = _doc("d", 30, needed=True, window_enabled=False, seating="seminar")
-    already_sent = _doc("e", 2, needed=True, window_enabled=False, seating="seminar",
-                        reminder_sent=True)
-    cancelled = _doc("f", 2, needed=True, window_enabled=False, seating="seminar",
-                     status="cancelled")
-
-    service, _ = _service_with(
-        [due_incomplete, complete, no_seating, out_of_window, already_sent, cancelled]
+def test_reminder_endpoint_requires_staff():
+    app.dependency_overrides[get_database] = lambda: SimpleNamespace(
+        reservations=MockReservationsCollection()
     )
+    try:
+        with TestClient(app) as client:
+            response = client.post("/reminders/run")
+    finally:
+        app.dependency_overrides.clear()
 
-    due = asyncio.run(service.due_reminders(today=TODAY))
-    due_ids = {doc["_id"] for doc in due}
-
-    assert "a" in due_ids  # incomplete catering window
-    assert "c" in due_ids  # missing seating type
-    assert "b" not in due_ids  # complete
-    assert "d" not in due_ids  # outside the reminder window
-    assert "e" not in due_ids  # already reminded
-    assert "f" not in due_ids  # cancelled
+    assert response.status_code == 401
 
 
-def test_run_marks_reminders_sent_once():
-    due = _doc("a", 2, needed=True, window_enabled=False, seating="seminar")
-    service, collection = _service_with([due])
+def test_reminder_endpoint_returns_config_error_for_missing_smtp(monkeypatch):
+    monkeypatch.setattr(settings, "smtp_host", None)
+    monkeypatch.setattr(settings, "smtp_from_email", None)
+    collection = MockReservationsCollection()
+    collection.documents.append(reservation_doc())
+    app.dependency_overrides[get_database] = lambda: SimpleNamespace(
+        reservations=collection
+    )
+    try:
+        with TestClient(app) as client:
+            set_staff_cookie(client)
+            response = client.post("/reminders/run")
+    finally:
+        app.dependency_overrides.clear()
 
-    first = asyncio.run(service.run(today=TODAY))
-    second = asyncio.run(service.run(today=TODAY))
+    assert response.status_code == 503
 
-    assert first == 1
-    assert second == 0  # not reminded again
-    assert collection.documents[0]["reminder_sent"] is True
+
+def test_reminder_endpoint_sends_with_mocked_smtp(monkeypatch):
+    configure_smtp(monkeypatch)
+    collection = MockReservationsCollection()
+    collection.documents.append(reservation_doc())
+    sent = []
+
+    class FakeSMTP:
+        def __init__(self, host, port, timeout):
+            self.host = host
+            self.port = port
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def send_message(self, message):
+            sent.append(message)
+
+    monkeypatch.setattr("app.services.reminder_service.smtplib.SMTP", FakeSMTP)
+    app.dependency_overrides[get_database] = lambda: SimpleNamespace(
+        reservations=collection
+    )
+    try:
+        with TestClient(app) as client:
+            set_staff_cookie(client)
+            response = client.post("/reminders/run")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["sent"] == 1
+    assert len(sent) == 1

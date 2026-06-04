@@ -108,6 +108,9 @@ export interface ReservationCreate {
 export interface Reservation extends ReservationCreate {
   id: string;
   status: ReservationStatus;
+  edit_token?: string | null;
+  reminder_sent_at?: string | null;
+  reminder_count?: number;
   created_at: string;
   updated_at: string;
   // Only present on the create response — used to build the customer edit link.

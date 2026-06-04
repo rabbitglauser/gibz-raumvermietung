@@ -28,11 +28,6 @@ class UserPublic(BaseModel):
     created_at: Optional[datetime] = None
 
 
-class LoginRequest(BaseModel):
-    username: str = Field(min_length=1)
-    password: str = Field(min_length=1)
-
-
 def user_to_public(doc: dict) -> dict:
     return {
         "id": str(doc["_id"]),

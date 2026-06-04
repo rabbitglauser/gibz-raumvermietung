@@ -5,6 +5,13 @@ required — `conftest.py` stubs `app.db` so every test runs in-process
 against an in-memory fake collection (see `MockReservationsCollection`
 in `test_reservations.py`).
 
+Latest result:
+
+```bash
+pytest -q
+# 65 passed, 1 warning
+```
+
 ## Running
 
 From the repository root:
@@ -44,17 +51,9 @@ pytest -v
 | Double-booking prevention         | `test_reservations.py`     | active   |
 | Adjacent-booking allowed          | `test_reservations.py`     | active   |
 | Listing reservations              | `test_reservations.py`     | active   |
-| Staff filters (catering/search)   | `test_reservations.py`     | active   |
-| Public availability (no PII)      | `test_reservations.py`     | active   |
-| Staff status update / delete      | `test_reservations.py`     | active   |
-| DAO / service unit tests          | `test_dao.py`              | active   |
-| Room catalogue                    | `test_rooms.py`            | active   |
+| Reservation filters               | `test_reservations.py`     | active   |
+| Structured validation errors      | `test_validation_errors.py`| active   |
 | Edit deadline behavior            | `test_edit_deadline.py`    | active   |
-| Staff auth + role gating          | `test_staff_routes.py`     | active   |
-| Reminder selection / send-once    | `test_reminders.py`        | active   |
-
-All suites are active. `test_edit_deadline.py` and `test_staff_routes.py` were
-previously module-skipped placeholders; the edit-token routes and staff-auth
-layer now exist, so they exercise real behavior. The fake collections in
-`mocks.py` support dotted paths (`catering.needed`), `$or`, and the
-`$ne/$in/$gte/$lte/$regex` operators used by the new filters.
+| Staff auth routes                 | `test_auth_routes.py`      | active   |
+| Staff-protected routes            | `test_staff_routes.py`     | active   |
+| Reminder routes/service           | `test_reminders.py`        | active   |

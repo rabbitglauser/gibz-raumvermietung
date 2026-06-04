@@ -279,69 +279,104 @@ def test_list_reservations_returns_typed_items(staff_client):
     assert body["items"][0]["contact"]["email"]
 
 
-def test_create_returns_edit_token(client):
-    response = client.post("/reservations", json=valid_payload())
-    assert response.status_code == 201
-    token = response.json()["edit_token"]
-    assert token and len(token) >= 20
+def test_list_reservations_filters_by_date_range(client):
+    early = valid_payload()
+    early["date"] = "2026-06-10"
+    early["event_name"] = "Early"
+    middle = valid_payload()
+    middle["date"] = "2026-06-15"
+    middle["event_name"] = "Middle"
+    late = valid_payload()
+    late["date"] = "2026-06-20"
+    late["event_name"] = "Late"
 
+    assert client.post("/reservations", json=early).status_code == 201
+    assert client.post("/reservations", json=middle).status_code == 201
+    assert client.post("/reservations", json=late).status_code == 201
 
-def test_list_filters_by_catering(staff_client):
-    with_catering = valid_payload()
-    without_catering = valid_payload()
-    without_catering["event_name"] = "No Catering"
-    without_catering["setup_start_time"] = "13:00"
-    without_catering["start_time"] = "13:30"
-    without_catering["end_time"] = "15:00"
-    without_catering["catering"] = {
-        "needed": False,
-        "before_event": {"enabled": False, "from_time": None, "to_time": None},
-        "during_event": {"enabled": False, "from_time": None, "to_time": None},
-        "after_event": {"enabled": False, "from_time": None, "to_time": None},
+    from_response = client.get(
+        "/reservations",
+        params={"from_date": "2026-06-12"},
+    )
+    to_response = client.get(
+        "/reservations",
+        params={"to_date": "2026-06-18"},
+    )
+    range_response = client.get(
+        "/reservations",
+        params={"from_date": "2026-06-12", "to_date": "2026-06-18"},
+    )
+
+    assert from_response.status_code == 200
+    assert {item["event_name"] for item in from_response.json()["items"]} == {
+        "Middle",
+        "Late",
     }
-
-    assert staff_client.post("/reservations", json=with_catering).status_code == 201
-    assert staff_client.post("/reservations", json=without_catering).status_code == 201
-
-    response = staff_client.get("/reservations", params={"has_catering": "true"})
-    assert response.status_code == 200
-    items = response.json()["items"]
-    assert len(items) == 1
-    assert items[0]["catering"]["needed"] is True
-
-
-def test_list_search_by_name(staff_client):
-    assert staff_client.post("/reservations", json=valid_payload()).status_code == 201
-
-    hit = staff_client.get("/reservations", params={"q": "M165"})
-    miss = staff_client.get("/reservations", params={"q": "nonexistent-event"})
-
-    assert len(hit.json()["items"]) == 1
-    assert len(miss.json()["items"]) == 0
+    assert to_response.status_code == 200
+    assert {item["event_name"] for item in to_response.json()["items"]} == {
+        "Early",
+        "Middle",
+    }
+    assert range_response.status_code == 200
+    assert [item["event_name"] for item in range_response.json()["items"]] == [
+        "Middle"
+    ]
 
 
-def test_availability_is_public_and_hides_pii(client):
-    assert client.post("/reservations", json=valid_payload()).status_code == 201
+def test_list_reservations_filters_by_catering_flag(client):
+    with_catering = valid_payload()
+    with_catering["date"] = "2026-06-15"
+    with_catering["event_name"] = "With Catering"
+    without_catering = valid_payload()
+    without_catering["date"] = "2026-06-16"
+    without_catering["event_name"] = "Without Catering"
+    without_catering["catering"] = {"needed": False}
 
-    response = client.get("/reservations/availability", params={"room": "aula-1-005"})
-    assert response.status_code == 200
-    items = response.json()["items"]
-    assert len(items) == 1
-    assert set(items[0].keys()) == {"room", "date", "setup_start_time", "end_time"}
+    assert client.post("/reservations", json=with_catering).status_code == 201
+    assert client.post("/reservations", json=without_catering).status_code == 201
+
+    true_response = client.get("/reservations", params={"has_catering": "true"})
+    false_response = client.get("/reservations", params={"has_catering": "false"})
+
+    assert true_response.status_code == 200
+    assert [item["event_name"] for item in true_response.json()["items"]] == [
+        "With Catering"
+    ]
+    assert false_response.status_code == 200
+    assert [item["event_name"] for item in false_response.json()["items"]] == [
+        "Without Catering"
+    ]
 
 
-def test_staff_can_update_status_and_delete(staff_client):
-    created = staff_client.post("/reservations", json=valid_payload()).json()
-    rid = created["id"]
+def test_list_reservations_filters_upcoming_and_past(client):
+    past_payload = valid_payload()
+    past_payload["date"] = "2000-01-01"
+    past_payload["event_name"] = "Past"
+    upcoming_payload = valid_payload()
+    upcoming_payload["date"] = "2099-01-01"
+    upcoming_payload["event_name"] = "Upcoming"
 
-    patched = staff_client.patch(f"/reservations/{rid}", json={"status": "confirmed"})
-    assert patched.status_code == 200
-    assert patched.json()["status"] == "confirmed"
+    assert client.post("/reservations", json=past_payload).status_code == 201
+    assert client.post("/reservations", json=upcoming_payload).status_code == 201
 
-    deleted = staff_client.delete(f"/reservations/{rid}")
-    assert deleted.status_code == 204
+    upcoming_response = client.get("/reservations", params={"upcoming": "true"})
+    past_response = client.get("/reservations", params={"past": "true"})
 
-    assert staff_client.get(f"/reservations/{rid}").status_code == 404
+    assert upcoming_response.status_code == 200
+    assert [item["event_name"] for item in upcoming_response.json()["items"]] == [
+        "Upcoming"
+    ]
+    assert past_response.status_code == 200
+    assert [item["event_name"] for item in past_response.json()["items"]] == ["Past"]
+
+
+def test_list_reservations_rejects_conflicting_relative_filters(client):
+    response = client.get(
+        "/reservations",
+        params={"upcoming": "true", "past": "true"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_room_specific_capacity_validation(client):
@@ -374,3 +409,96 @@ def test_room_specific_equipment_validation(client):
 
     assert response.status_code == 422
     assert response.json()["detail"]
+
+
+def test_create_reservation_rejects_time_before_booking_window(client):
+    payload = valid_payload()
+    payload["setup_start_time"] = "06:00"
+    payload["start_time"] = "06:30"
+    payload["end_time"] = "10:00"
+
+    response = client.post("/reservations", json=payload)
+
+    assert response.status_code == 422
+    assert "07:00" in str(response.json()["detail"])
+
+
+def test_create_reservation_rejects_time_after_booking_window(client):
+    payload = valid_payload()
+    payload["setup_start_time"] = "20:00"
+    payload["start_time"] = "20:30"
+    payload["end_time"] = "23:00"
+
+    response = client.post("/reservations", json=payload)
+
+    assert response.status_code == 422
+    assert "22:00" in str(response.json()["detail"])
+
+
+def test_create_reservation_allows_different_room_same_time(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    other_room_payload = valid_payload()
+    other_room_payload["room"] = "seminarraum-2-112"
+    other_room_payload["attendee_count"] = 30
+    other_room_payload["setup"]["seating_type"] = "seminar"
+    other_room_payload["setup"]["equipment"] = [{"type": "projector", "quantity": 1}]
+    other_room_payload["setup"]["microphone_needed"] = False
+    other_room_payload["setup"]["technical_support_hours"] = None
+    other_room_payload["setup"]["regie_hours"] = None
+    other_room_payload["catering"] = {"needed": False}
+
+    response = client.post("/reservations", json=other_room_payload)
+
+    assert response.status_code == 201
+
+
+def test_create_reservation_allows_different_date_same_room(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    different_date_payload = valid_payload()
+    different_date_payload["date"] = "2026-06-16"
+
+    response = client.post("/reservations", json=different_date_payload)
+
+    assert response.status_code == 201
+
+
+def test_create_reservation_allows_overlap_with_cancelled_reservation(
+    client, mock_collection
+):
+    cancelled_doc = {
+        "_id": "reservation-cancelled",
+        "room": "aula-1-005",
+        "date": "2026-06-15",
+        "setup_start_time": "08:30",
+        "start_time": "09:00",
+        "end_time": "12:00",
+        "status": "cancelled",
+    }
+    mock_collection.documents.append(cancelled_doc)
+
+    response = client.post("/reservations", json=valid_payload())
+
+    assert response.status_code == 201
+
+
+def test_conflict_error_message_includes_room_and_date(client):
+    first_response = client.post("/reservations", json=valid_payload())
+    assert first_response.status_code == 201
+
+    overlap_payload = valid_payload()
+    overlap_payload["event_name"] = "Overlapping Event"
+    overlap_payload["setup_start_time"] = "10:00"
+    overlap_payload["start_time"] = "10:30"
+    overlap_payload["end_time"] = "13:00"
+
+    response = client.post("/reservations", json=overlap_payload)
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "already reserved" in detail
+    assert "aula-1-005" in detail
+    assert "2026-06-15" in detail

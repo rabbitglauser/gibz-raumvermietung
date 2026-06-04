@@ -1,105 +1,133 @@
-# Project Status — Raumvermietung
+# Project Status - Raumvermietung
 
-> Code + Doku-Abgabe: **2026-06-10** · Screencast: **2026-06-24**
+Last updated: 2026-05-26
 
----
+| Deliverable | Date | Time left |
+|---|---:|---:|
+| Code + documentation PDF | 2026-06-10 | 15 days |
+| Screencast | 2026-06-24 | 29 days |
+| GitHub repository | accepted by teacher | done |
 
-## Progress
+## Current Snapshot
 
+The core application is implemented: public room catalogue, booking dialog,
+reservation validation, conflict detection, customer edit links, edit deadline,
+staff authentication, staff dashboard, reservation filters, status/cancel
+actions, manual SMTP reminders, Docker Compose, MongoDB persistence, and backup
+scripts.
+
+Latest backend test result:
+
+```text
+pytest -q
+65 passed, 1 warning
 ```
-███████░░░░░░░░░░░░░░░░░  29%   (7 / 24 done)
-```
 
-| Deadline | Datum | Tage übrig |
-|---|---|---|
-| 📄 Code + Doku (PDF) | 2026-06-10 | **29** |
-| 🎬 Screencast | 2026-06-24 | **43** |
-| ✅ GitHub Repo | von Lehrer akzeptiert | — |
+## Do This Next
 
----
+1. **Docker/browser smoke test** - verify public booking, staff login, filters,
+   status changes, cancellation, and reminder button.
+2. **Customer confirmation polish** - show/copy the edit link clearly after
+   booking.
+3. **Final submission tasks** - export the final PDF and record the screencast.
 
-## 🎯 Do this next (Top 3)
+## Must-Haves
 
-1. **Edit-Route + Edit-Deadline** — entsperrt `test_edit_deadline.py`, ist Pflicht-Anforderung.
-2. **Staff-Routen mit Filtern** — entsperrt `test_staff_routes.py`, deckt drei Stakeholder ab.
-3. **Note-6-Zusatzfunktion** mit Lehrer absprechen — blockiert sonst zu lange.
+### Reservation Lifecycle
 
----
+- [x] `POST /reservations`
+- [x] Conflict detection for overlapping bookings
+- [x] Adjacent bookings allowed
+- [x] Edit token generated on reservation creation
+- [x] `GET /reservations/edit/{token}`
+- [x] `PUT /reservations/edit/{token}`
+- [x] Edit deadline check returns 403 after cutoff
+- [x] Configurable `edit_deadline_hours`
+- [ ] Staff/admin full edit by reservation ID, e.g. `PUT/PATCH /reservations/{id}`
+- [x] Cancel/delete route via `DELETE /reservations/{id}` -> `cancelled`
 
-## Must-haves (werden benotet)
+### Staff Access
 
-### 🔁 Reservation Lifecycle (0/4)
-- [ ] `PUT /reservations/{id}` oder `PATCH` für Bearbeitung
-- [ ] `DELETE /reservations/{id}` (oder Status → cancelled)
-- [ ] Edit-Deadline-Check (HTTP 403 wenn überschritten)
-- [ ] `EDIT_DEADLINE_DAYS` in `backend/app/config.py`
+- [x] Staff login endpoint
+- [x] Password hashing
+- [x] JWT cookie session
+- [x] Staff auth dependency
+- [x] Staff-only status route: confirm/reject/cancel
+- [x] Staff dashboard frontend
+- [x] Reservation table/detail view for staff
 
-### 👥 Mitarbeiter-Zugriff (0/4)
-- [ ] Auth-Skelett (Login, Password-Hash, JWT/Session)
-- [ ] Staff-Routen ausimplementieren (`test_staff_routes.py`)
-- [ ] Filter auf `GET /reservations`: `from_date`, `to_date`, `has_catering`, `upcoming|past`
-- [ ] Status-Update-Route exponieren (DAO-Methode existiert bereits)
+### Reservation Filters
 
-### 🔔 Automatisierung (0/4)
-- [ ] Reminder-Scheduler (APScheduler in FastAPI-Lifespan)
-- [ ] SMTP-Config (`SMTP_HOST`, `SMTP_USER`, …) in `config.py` + `.env.example`
-- [ ] E-Mail-Template für „fehlende Angaben"
-- [ ] Felder `reminder_sent_at` / `reminder_count` auf Reservation
+- [x] `GET /reservations?from_date=...`
+- [x] `GET /reservations?to_date=...`
+- [x] `GET /reservations?has_catering=true|false`
+- [x] `GET /reservations?upcoming=true`
+- [x] `GET /reservations?past=true`
+- [ ] Optional: search by contact name or room
+- [x] Backend tests for filters
 
-### 🧑‍💻 Kunden-Flow (0/3)
-- [ ] AGB-Seite (`/agb` oder Modal)
-- [ ] AGB-Pflicht-Checkbox im Buchungs-Wizard
-- [ ] Kunden-Edit-Zugang (Magic-Link-Token oder Login)
+### Reminder Automation
 
-### 🛠️ Operations (0/2)
-- [ ] Backup-Script (`mongodump`) + `docs/BACKUP_RESTORE.md`
-- [ ] Restore-Anleitung für IT-Abteilung
+- [x] Reminder settings in `config.py` and `.env.example`
+- [x] SMTP settings in `config.py` and `.env.example`
+- [x] Reservation fields `reminder_sent_at` and `reminder_count`
+- [x] Missing-info detection
+- [x] Manual staff trigger via `POST /reminders/run`
+- [x] Email template with customer edit link
+- [x] Reminder tests with mocked SMTP
+- [ ] Optional: scheduled background reminder job
 
----
+### Customer Flow
 
-## ⭐ Für Note 6 (0/3)
-- [ ] Bonus-Feature mit Lehrer absprechen
-- [ ] Umsetzen
-- [ ] In Kapitel 3.1 dokumentieren
+- [x] `/agb` page
+- [x] AGB checkbox in booking wizard
+- [x] Backend rejects `terms_accepted: false`
+- [x] Customer edit page at `/reservation/edit/[token]`
+- [ ] Show/copy edit link clearly after successful booking
+- [ ] Optional: send immediate confirmation email with edit link
 
-**Ideen:** ICS-Kalender-Export · PDF-Bestätigung · Live-Konflikt-Vorschau · Auslastungs-Dashboard · Volltextsuche
+### Operations
 
----
+- [x] Docker Compose for MongoDB/backend/frontend
+- [x] Named MongoDB volume
+- [x] Backup script: `scripts/backup-mongodb.ps1`
+- [x] Restore script: `scripts/restore-mongodb.ps1`
+- [x] Restore verification script: `scripts/verify-mongodb-restore.ps1`
+- [x] `docs/BACKUP_RESTORE.md`
+- [x] `backend/.env.example`
+- [ ] Verify `docker compose up --build` from a clean checkout
 
-## 📚 Dokumentation (eine PDF) (0/7)
-- [ ] MD-Dateien aus `docs/` zu einer PDF konsolidieren
-- [ ] 3.1 Zusatzfunktionen
-- [ ] 3.2 Architektur-Diagramm (`docs/diagrams/architecture.excalidraw` → PNG exportieren)
-- [ ] 3.3 Technologie-Stack
-- [ ] 3.4 Testen (mit Ergebnissen + Coverage)
-- [ ] 3.5 Installationsanleitung
-- [ ] 3.6 Fazit
+## Documentation
 
----
+- [x] Update `docs/TESTING.md`
+- [x] Add final backend test result
+- [x] Document technology stack and MongoDB fit
+- [x] Document installation/startup steps with Docker Compose
+- [x] Document backup/restore procedure
+- [x] Document known limitations
+- [x] Write chapter 3.1 additional functions
+- [x] Write conclusion/reflection
+- [x] Add screencast script
+- [ ] Export final PDF
 
-## 🧪 Tests un-skippen (0/4)
-- [ ] `backend/tests/test_edit_deadline.py`
-- [ ] `backend/tests/test_staff_routes.py`
-- [ ] Reminder-Test (neu, mit gemocktem `datetime.now`)
-- [ ] Auth-Test (neu, 401/403-Pfade)
+## Tests
 
----
+- [x] Validation error tests
+- [x] Reservation create/list/conflict/filter tests
+- [x] Edit-deadline tests
+- [x] Staff auth and protected route tests
+- [x] Reminder tests
+- [ ] Manual frontend browser checklist
+- [ ] Optional frontend unit/e2e tests
 
-## 🎬 Screencast (0/5)
-- [ ] Drehbuch (≤ 10 Min.)
-- [ ] Golden-Path-Reservation aufnehmen
-- [ ] Mitarbeiter-Sicht aufnehmen
-- [ ] Bonus-Feature aufnehmen
-- [ ] Export als `Screencast_<Klasse>.mp4`
+## Screencast
 
----
-
-## ✅ Schon erledigt (7/7)
-
-- [x] `POST /reservations` mit Konflikt-Erkennung (inkl. adjazent-Booking-Test)
-- [x] DAO-Layer (`reservation_dao`, `room_dao`, `user_dao`)
-- [x] Pydantic-Validation auf Model-Ebene (`model_validator(mode="after")`)
-- [x] MongoDB + Docker Compose (3 Services)
-- [x] Räume-Liste + Detail-Seite im Frontend
-- [x] Buchungs-Wizard im Frontend (`ReservationForm`)
-- [x] Health-Check + Test-Suite mit In-Memory-Mock-Collection
+- [x] Script under 10 minutes
+- [x] Room catalogue and room detail section
+- [x] Successful reservation creation section
+- [x] Conflict prevention section
+- [x] Customer edit via token section
+- [x] Staff dashboard section
+- [x] Reminder section
+- [x] Test result section
+- [ ] Export as the required MP4 file name

@@ -18,6 +18,7 @@ import {
   buildPayload,
   createReservation,
   type CreateResult,
+  type ValidationError,
 } from "@/lib/reservations";
 
 type ResultEntry = {
@@ -26,7 +27,7 @@ type ResultEntry = {
   state: "pending" | "ok" | "conflict" | "error";
   message?: string;
   id?: string;
-  editToken?: string;
+  validationErrors?: ValidationError[];
 };
 
 interface StepReviewProps {
@@ -83,6 +84,7 @@ export function StepReview({ form }: StepReviewProps) {
           date: d,
           state: "error",
           message: r.message,
+          validationErrors: r.validationErrors,
         };
       }),
     );
@@ -239,6 +241,23 @@ function StatusBadge({ entry }: { entry: ResultEntry | undefined }) {
         <AlertCircle className="size-3" />
         Konflikt: {entry.message}
       </span>
+    );
+  }
+  if (entry.validationErrors && entry.validationErrors.length > 0) {
+    return (
+      <div className="mt-1 flex flex-col gap-0.5">
+        {entry.validationErrors.map((e, i) => (
+          <span
+            key={i}
+            className="inline-flex items-start gap-1 text-[11px] text-[#b91c1c]"
+          >
+            <XCircle className="mt-0.5 size-3 shrink-0" />
+            <span>
+              <span className="font-medium">{e.label}:</span> {e.message}
+            </span>
+          </span>
+        ))}
+      </div>
     );
   }
   return (

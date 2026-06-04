@@ -297,6 +297,8 @@ target.createCollection("reservations", {
         catering: { bsonType: "object" },
         publication: { bsonType: ["object", "null"] },
         remarks: { bsonType: ["string", "null"] },
+        reminder_sent_at: { bsonType: ["date", "null"] },
+        reminder_count: { bsonType: ["int", "null"], minimum: 0 },
         created_at: { bsonType: "date" },
         updated_at: { bsonType: "date" },
       },

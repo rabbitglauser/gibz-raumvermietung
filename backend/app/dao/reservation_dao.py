@@ -24,6 +24,7 @@ class ReservationDAO:
         doc["status"] = ReservationStatus.pending.value
         doc["edit_token"] = secrets.token_urlsafe(32)
         doc["reminder_sent"] = False
+        doc["reminder_count"] = 0
         doc["created_at"] = now
         doc["updated_at"] = now
 
@@ -36,6 +37,9 @@ class ReservationDAO:
 
     async def get_by_token(self, edit_token: str) -> Optional[dict]:
         return await self.collection.find_one({"edit_token": edit_token})
+
+    async def get_by_edit_token(self, token: str) -> Optional[dict]:
+        return await self.get_by_token(token)
 
     async def list_all(self, filters: Optional[dict] = None) -> list[dict]:
         query = self._build_filter(filters or {})
@@ -61,6 +65,7 @@ class ReservationDAO:
         if filters.get("upcoming"):
             today = date.today().isoformat()
             query.setdefault("date", {})["$gte"] = today
+
         if filters.get("past"):
             today = date.today().isoformat()
             query.setdefault("date", {})["$lt"] = today
@@ -93,8 +98,10 @@ class ReservationDAO:
                 ]
             }
         }
+
         if room:
             query["room"] = room
+
         items: list[dict] = []
         async for item in self.collection.find(query).sort("date", 1):
             items.append(item)
@@ -106,11 +113,10 @@ class ReservationDAO:
         # Overlap detection: two reservations conflict iff
         #   existing.setup_start_time < new.end_time
         #   AND existing.end_time > new.setup_start_time
-        # Adjacent bookings (one ends exactly when another starts) are allowed
-        # because the comparisons are strict.
+        # Adjacent bookings are allowed because the comparisons are strict.
         # Times are stored as zero-padded ISO strings, so lexicographic
         # comparison matches chronological comparison.
-        conflict_filter = {
+        conflict_filter: dict = {
             "room": payload.room.value,
             "date": payload.date.isoformat(),
             "status": {
@@ -122,17 +128,27 @@ class ReservationDAO:
             "setup_start_time": {"$lt": payload.end_time.isoformat()},
             "end_time": {"$gt": payload.setup_start_time.isoformat()},
         }
+
         if exclude_id is not None:
             conflict_filter["_id"] = {"$ne": exclude_id}
+
         return await self.collection.find_one(conflict_filter) is not None
 
     async def update_fields(self, reservation_id: str, fields: dict) -> Optional[dict]:
         fields = {**fields, "updated_at": datetime.now(timezone.utc)}
+
         await self.collection.update_one(
             {"_id": reservation_id},
             {"$set": fields},
         )
+
         return await self.get_by_id(reservation_id)
+
+    async def update_reservation(
+        self, reservation_id: str, payload: ReservationCreate
+    ) -> Optional[dict]:
+        updates = payload.model_dump(mode="json")
+        return await self.update_fields(reservation_id, updates)
 
     async def update_status(
         self, reservation_id: str, status: ReservationStatus
@@ -145,8 +161,8 @@ class ReservationDAO:
 
     async def list_pending_reminders(self, cutoff_date: str) -> list[dict]:
         """Active reservations on or before `cutoff_date` that have not yet
-        been reminded. Completeness is decided in Python so the rule lives in
-        one place (`reservation_is_incomplete`)."""
+        been reminded.
+        """
         query = {
             "reminder_sent": {"$ne": True},
             "date": {"$lte": cutoff_date},
@@ -157,13 +173,50 @@ class ReservationDAO:
                 ]
             },
         }
+
         items: list[dict] = []
         async for item in self.collection.find(query):
             items.append(item)
         return items
 
-    async def mark_reminder_sent(self, reservation_id: str) -> None:
+    async def list_reminder_candidates(self, from_date: str, to_date: str) -> list[dict]:
+        items: list[dict] = []
+
+        cursor = self.collection.find(
+            {
+                "date": {"$gte": from_date, "$lte": to_date},
+                "status": {
+                    "$nin": [
+                        ReservationStatus.cancelled.value,
+                        ReservationStatus.rejected.value,
+                    ]
+                },
+            }
+        ).sort("date", 1)
+
+        async for item in cursor:
+            items.append(item)
+
+        return items
+
+    async def mark_reminder_sent(self, reservation_id: str) -> Optional[dict]:
+        doc = await self.get_by_id(reservation_id)
+
+        if doc is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+
         await self.collection.update_one(
             {"_id": reservation_id},
-            {"$set": {"reminder_sent": True, "updated_at": datetime.now(timezone.utc)}},
+            {
+                "$set": {
+                    "reminder_sent": True,
+                    "reminder_sent_at": now,
+                    "reminder_count": int(doc.get("reminder_count") or 0) + 1,
+                    "updated_at": now,
+                }
+            },
         )
+
+        return await self.get_by_id(reservation_id)

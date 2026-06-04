@@ -4,6 +4,7 @@ const linkColumn = [
   { label: "Informationen", href: "#" },
   { label: "Ansprechpartner", href: "#" },
   { label: "AGB Raumreservation", href: "/agb" },
+  { label: "Mitarbeitende", href: "/staff" },
 ];
 
 function FacebookIcon() {
