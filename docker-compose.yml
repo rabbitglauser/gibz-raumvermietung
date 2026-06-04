@@ -35,5 +35,14 @@ services:
     depends_on:
       - backend
 
+  # Optional: captures reminder emails for the demo. Set SMTP_HOST=mailhog and
+  # REMINDERS_ENABLED=true in backend/.env, then open http://localhost:8025.
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: room-rental-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   mongodb_data:
