@@ -85,8 +85,10 @@ def _smtp_configured() -> bool:
 
 
 def _build_edit_link(doc: dict) -> str:
+    # Query-param form so the link works on the static (GitHub Pages) frontend,
+    # which has no dynamic /reservation/edit/[token] route.
     base_url = _public_frontend_url().rstrip("/")
-    return f"{base_url}/reservation/edit/{doc['edit_token']}"
+    return f"{base_url}/reservation/edit/?token={doc['edit_token']}"
 
 
 def _build_message(doc: dict, missing: list[str]) -> EmailMessage:
