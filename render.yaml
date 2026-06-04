@@ -1,0 +1,51 @@
+# Render Blueprint — deploys the FastAPI backend so the GitHub Pages
+# frontend has a public API to talk to.
+#
+# MongoDB is NOT hosted here — use a free MongoDB Atlas cluster and set the
+# connection string as the MONGODB_URL env var in the Render dashboard
+# (it is marked sync:false so it is never committed). See docs/HOSTING.md.
+services:
+  - type: web
+    name: gibz-raumvermietung-backend
+    runtime: docker
+    repo: https://github.com/rabbitglauser/gibz-raumvermietung
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    # Render injects $PORT; the Dockerfile's default CMD binds 8000, so we
+    # override it here to listen on the assigned port.
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Set this in the Render dashboard to your Atlas SRV string, e.g.
+      # mongodb+srv://user:pass@cluster.xxxxx.mongodb.net/?retryWrites=true&w=majority
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DB
+        value: room_rental
+      # GitHub Pages origin (+ localhost for local dev). Auth uses cookies,
+      # so this must be explicit origins, not "*".
+      - key: CORS_ORIGINS
+        value: https://rabbitglauser.github.io,http://localhost:3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE_MINUTES
+        value: "480"
+      # Frontend (Pages) and backend (Render) are different sites, so the
+      # staff auth cookie must be SameSite=None; Secure to be sent cross-site.
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: AUTH_COOKIE_SAMESITE
+        value: "none"
+      - key: EDIT_DEADLINE_DAYS
+        value: "3"
+      - key: REMINDER_WINDOW_DAYS
+        value: "5"
+      - key: REMINDERS_ENABLED
+        value: "false"
+      # Used for edit links in reminder emails (query-param form for Pages).
+      - key: PUBLIC_BASE_URL
+        value: https://rabbitglauser.github.io/gibz-raumvermietung
+      - key: PUBLIC_FRONTEND_URL
+        value: https://rabbitglauser.github.io/gibz-raumvermietung
