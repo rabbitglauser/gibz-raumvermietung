@@ -226,8 +226,83 @@ class ReservationOut(ReservationCreate):
     updated_at: datetime
 
 
+class ReservationCreated(ReservationOut):
+    """Create response — the only place the edit token is ever returned."""
+
+    edit_token: str
+
+
 class ReservationList(BaseModel):
     items: list[ReservationOut]
+
+
+class AvailabilitySlot(BaseModel):
+    """Public-safe view of a booked slot — no customer data."""
+
+    room: RoomId
+    date: date
+    setup_start_time: time
+    end_time: time
+
+
+class AvailabilityList(BaseModel):
+    items: list[AvailabilitySlot]
+
+
+class ReservationUpdate(BaseModel):
+    """Fields a customer may change before the edit deadline.
+
+    Date, time, and room are intentionally excluded — changing those would
+    affect availability/conflict detection, which is staff-only.
+    """
+
+    attendee_count: Optional[int] = Field(default=None, gt=0)
+    contact: Optional[ContactInfo] = None
+    billing_address: Optional[BillingAddress] = None
+    catering: Optional[CateringInfo] = None
+    setup: Optional[SetupInfo] = None
+    publication: Optional[PublicationInfo] = None
+    remarks: Optional[str] = None
+
+
+class StaffReservationUpdate(ReservationUpdate):
+    """Staff may additionally change scheduling fields and the status."""
+
+    status: Optional[ReservationStatus] = None
+    date: Optional[date] = None
+    setup_start_time: Optional[time] = None
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+    room: Optional[RoomId] = None
+
+
+# Fields that make up a full ReservationCreate — used to rebuild and
+# re-validate a stored document after a partial update.
+CREATE_FIELDS = tuple(ReservationCreate.model_fields.keys())
+
+
+def doc_to_create_dict(doc: dict) -> dict:
+    """Extract the ReservationCreate-shaped subset of a stored document."""
+    return {field: doc[field] for field in CREATE_FIELDS if field in doc}
+
+
+def reservation_is_incomplete(doc: dict) -> bool:
+    """A reservation still needs customer input if catering is requested
+    but has no enabled window, or no setup details have been provided.
+
+    Used by the reminder job to decide whether to nudge the customer.
+    """
+    catering = doc.get("catering") or {}
+    if catering.get("needed"):
+        windows = ("before_event", "during_event", "after_event")
+        if not any((catering.get(w) or {}).get("enabled") for w in windows):
+            return True
+
+    setup = doc.get("setup") or {}
+    if not setup.get("seating_type"):
+        return True
+
+    return False
 
 
 def reservation_to_response(doc: dict) -> dict:

@@ -44,10 +44,17 @@ pytest -v
 | Double-booking prevention         | `test_reservations.py`     | active   |
 | Adjacent-booking allowed          | `test_reservations.py`     | active   |
 | Listing reservations              | `test_reservations.py`     | active   |
-| Edit deadline behavior            | `test_edit_deadline.py`    | skipped¹ |
-| Staff-protected routes            | `test_staff_routes.py`     | skipped¹ |
+| Staff filters (catering/search)   | `test_reservations.py`     | active   |
+| Public availability (no PII)      | `test_reservations.py`     | active   |
+| Staff status update / delete      | `test_reservations.py`     | active   |
+| DAO / service unit tests          | `test_dao.py`              | active   |
+| Room catalogue                    | `test_rooms.py`            | active   |
+| Edit deadline behavior            | `test_edit_deadline.py`    | active   |
+| Staff auth + role gating          | `test_staff_routes.py`     | active   |
+| Reminder selection / send-once    | `test_reminders.py`        | active   |
 
-¹ Skipped at the module level until the corresponding routes exist
-(`PUT/PATCH /reservations/{id}` for edits, a staff-auth dependency for
-protected actions). Each skip includes a reason; un-skip when the
-feature lands.
+All suites are active. `test_edit_deadline.py` and `test_staff_routes.py` were
+previously module-skipped placeholders; the edit-token routes and staff-auth
+layer now exist, so they exercise real behavior. The fake collections in
+`mocks.py` support dotted paths (`catering.needed`), `$or`, and the
+`$ne/$in/$gte/$lte/$regex` operators used by the new filters.

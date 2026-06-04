@@ -35,7 +35,13 @@ const EQUIPMENT_TYPES = [
   "stage",
 ];
 
-const USER_ROLES = ["staff", "admin"];
+const USER_ROLES = [
+  "staff",
+  "secretariat",
+  "hausdienst",
+  "restaurant_treff",
+  "admin",
+];
 
 target.createCollection("rooms", {
   validator: {

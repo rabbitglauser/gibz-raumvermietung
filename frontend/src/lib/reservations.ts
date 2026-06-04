@@ -106,29 +106,10 @@ export async function createReservation(
   }
 }
 
-export async function getReservations(roomId: string): Promise<Reservation[]> {
-  if (!API_BASE_URL) {
-    return [];
-  }
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/reservations`, {
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return [];
-    }
-    const body = (await res.json()) as { items?: Reservation[] };
-    return (body.items ?? []).filter(
-      (r) =>
-        r.room === roomId &&
-        r.status !== "cancelled" &&
-        r.status !== "rejected",
-    );
-  } catch {
-    return [];
-  }
-}
+// Availability comes from the public /reservations/availability endpoint,
+// which returns only booked slots (no customer data). The full reservation
+// list is staff-only.
+export { getAvailability } from "./api";
 
 const FULL_DAY_START = "07:00:00";
 const FULL_DAY_END = "22:00:00";
@@ -147,7 +128,9 @@ function intervalsCoverFullDay(
   return cursor >= FULL_DAY_END;
 }
 
-export function buildAvailability(reservations: Reservation[]): {
+type SlotLike = { date: string; setup_start_time: string; end_time: string };
+
+export function buildAvailability(reservations: SlotLike[]): {
   fullyBooked: Set<string>;
   partiallyBooked: Set<string>;
 } {

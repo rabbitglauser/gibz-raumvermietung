@@ -44,4 +44,7 @@ class EquipmentType(str, Enum):
 
 class UserRole(str, Enum):
     staff = "staff"
+    secretariat = "secretariat"
+    hausdienst = "hausdienst"
+    restaurant_treff = "restaurant_treff"
     admin = "admin"

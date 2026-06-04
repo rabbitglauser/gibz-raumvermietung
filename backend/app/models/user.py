@@ -26,3 +26,19 @@ class UserPublic(BaseModel):
     name: str
     email: EmailStr
     created_at: Optional[datetime] = None
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+def user_to_public(doc: dict) -> dict:
+    return {
+        "id": str(doc["_id"]),
+        "username": doc["username"],
+        "role": doc["role"],
+        "name": doc["name"],
+        "email": doc["email"],
+        "created_at": doc.get("created_at"),
+    }

@@ -1,41 +1,50 @@
-# Must Have Features
+# Features
 
-## Prevent Double Bookings
-- A room cannot be booked if it is already reserved.
-- The system blocks the booking automatically.
+> **Note:** An earlier draft of this file described a student/teacher booking
+> concept (student approval workflow, `GIB000000` IDs, shared calendar, semester
+> bookings). That concept was **superseded** by the room-rental scope defined in
+> [M165ANFORDERUNGPROJEKT.md](M165ANFORDERUNGPROJEKT.md), [PRD.md](PRD.md), and
+> [SCOPE.md](SCOPE.md). The list below reflects what is actually implemented.
 
-## Higher Authority Override
-- Admins, principals, or other authorized people can cancel bookings if needed.
-- This is only for important or emergency situations.
+## Customer
 
-## Booking Rules
-- Rooms can only be booked during school opening hours.
-- Every booking needs:
-  - First name
-  - Last name
-  - ID number, for example `GIB000000`
-  - Reason for the booking
+- **Room catalogue** — browse all rooms with capacity, location, equipment,
+  seating variants, pricing, and images (`/raeume`, `/raeume/{roomId}`).
+- **Self-service reservation** — book a room via a multi-step form (date/time,
+  room, organizer, contact, billing, catering, setup, publication).
+- **Conflict prevention** — overlapping bookings for the same room/date/time are
+  rejected (`409`); adjacent bookings (one ends as another starts) are allowed.
+- **Server-side validation** — required fields, email format, time ordering, and
+  per-room rules (capacity, allowed seating/equipment, microphone, technical
+  support, regie) are enforced at the model layer (`422` on violation).
+- **Edit link (no account)** — each reservation returns a secure `edit_token`;
+  the customer completes/changes catering, setup, and remarks at
+  `/reservation/edit/?token=…` until a configurable deadline before the event.
 
-## Student Booking Approval
-- Students need teacher permission to book a room.
-- While the request is waiting, the room is blocked.
-- If the teacher does not answer within 1 hour, the request is deleted.
-- The teacher gets an email and can accept or decline the request.
+## Staff
 
-## Calendar
-- A calendar shows all reserved rooms with the time.
-- Students only see basic booking information.
-- Teachers and admins can see more details, like:
-  - Name
-  - ID number
-  - Room
-  - Time
-  - Reason
+- **Login** — username/password, bcrypt-hashed, JWT in an HTTP-only cookie.
+- **Dashboard** (`/dashboard`) — list all reservations with filters:
+  date range, catering required, upcoming, past, status, and free-text search
+  (name / room / event).
+- **Manage** — view detail, change status (pending → confirmed/rejected/
+  cancelled), and edit fields. Rescheduling re-checks for conflicts.
+- **Delete** — admin-only ("higher-authority override").
+- **Roles** — `staff`, `secretariat`, `hausdienst`, `restaurant_treff`, `admin`.
 
-## Long Term Bookings
-- If a room is needed for a whole semester, it must be discussed with an admin.
-- Only admins or higher authority users can create this type of booking.
+## Automation
 
-## User Roles
-- Students, teachers, and admins have separate logins.
-- Each role has different features and permissions.
+- **Reminders** — an optional scheduled job emails customers whose event is
+  within a configurable window and whose catering/setup details are still
+  incomplete, including their edit link. Each reservation is reminded at most
+  once (`reminder_sent` flag). Degrades gracefully without SMTP.
+
+## Platform
+
+- **DAO layer** decoupling all MongoDB access; **NoSQL document model** with
+  schema validators and indexes.
+- **Configurable** edit deadline, reminder window, and connection/auth/SMTP
+  settings via environment variables (no hardcoding).
+- **Docker Compose** one-command startup; **backup/restore** documented.
+- **Public availability endpoint** exposing only booked slots (no customer data)
+  so the booking calendar never leaks PII.

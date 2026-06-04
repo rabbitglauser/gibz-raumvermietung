@@ -1,7 +1,7 @@
 <h1 align="center">
   <img
     src="https://github.com/user-attachments/assets/070048c2-46a3-45c7-8dea-92b34890dcb0"
-    alt="SuperLottomatch"
+    alt="Raumvermietung"
     width="200"
   />
   <br/>

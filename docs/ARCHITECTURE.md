@@ -1,227 +1,142 @@
-# Architecture
+# System Architecture
 
-## Overview
+The GIBZ Room Rental application replaces the PDF-based reservation workflow with
+a web application: a Next.js frontend, a FastAPI backend, and a MongoDB database,
+all started through Docker Compose.
 
-The GIBZ Room Rental application is intended to replace the current PDF-based reservation workflow with a web application. The current repository contains the technical baseline for that system: a Next.js frontend, a FastAPI backend, and a MongoDB database, all started through Docker Compose.
-
-This document separates the implemented architecture from the planned final architecture so that the documentation stays aligned with the current codebase.
-
-## Implemented Architecture
+## Component overview
 
 ```mermaid
-graph TB
-    Browser["Browser"]
-    FE["Next.js Frontend<br/>localhost:3000"]
-    BE["FastAPI Backend<br/>localhost:8000"]
-    database["MongoDB 8<br/>localhost:27017"]
-    Volume["Docker volume<br/>mongodb_data"]
+flowchart LR
+    subgraph Browser
+        Cust["Customer<br/>catalogue · booking ·<br/>edit-token page"]
+        Staff["Staff<br/>dashboard · login"]
+    end
 
-    Browser --> FE
-    FE -->|"REST call to /health"| BE
-    BE -->|"AsyncMongoClient"| database
-    database --> Volume
+    subgraph Frontend["Frontend — Next.js 16 (static export)"]
+        Pages["App Router pages<br/>/ · /raeume · /reservation ·<br/>/reservation/edit · /dashboard"]
+        ApiLib["lib/api.ts<br/>fetch wrappers"]
+    end
+
+    subgraph Backend["Backend — FastAPI"]
+        Routers["Routers<br/>auth · reservations · rooms"]
+        Security["security.py<br/>bcrypt + JWT cookie"]
+        Services["Services<br/>reservation · room · user · reminder"]
+        DAO["DAO layer"]
+        Scheduler["APScheduler<br/>reminder job"]
+    end
+
+    DB[("MongoDB 8<br/>reservations · rooms · users")]
+    SMTP["SMTP / MailHog"]
+
+    Cust --> Pages
+    Staff --> Pages
+    Pages --> ApiLib
+    ApiLib -->|HTTP/JSON · cookie auth| Routers
+    Routers --> Security
+    Routers --> Services
+    Services --> DAO
+    DAO --> DB
+    Scheduler --> Services
+    Services -->|reminders| SMTP
 ```
 
-Current services:
+## Services
 
 | Service | Technology | Port | Purpose |
 |---|---|---|---|
-| `frontend` | Next.js 16, React 19, TypeScript | 3000 | Displays the current starter UI and backend health status |
-| `backend` | FastAPI, Python 3.12, Pydantic | 8000 | Exposes health and reservation API endpoints |
-| `mongodb` | MongoDB 8 | 27017 | Stores reservation documents |
+| `frontend` | Next.js 16, React 19, TypeScript, Tailwind 4 | 3000 | Catalogue, booking, customer edit page, staff dashboard |
+| `backend` | FastAPI, Python 3.12, Pydantic | 8000 | REST API, auth, business rules, reminder scheduler |
+| `mongodb` | MongoDB 8 | 27017 | Document store (`reservations`, `rooms`, `users`) |
+| `mailhog` *(optional)* | MailHog | 8025 | Captures reminder emails for the demo |
 
-The application is currently a small modular monolith: one backend application contains the API routes and database connection logic. MongoDB is accessed directly from the reservation router. The planned DAO layer has not been implemented yet.
+## Backend layering
 
-## Current Backend
+Requests flow strictly downward — each layer depends only on the one below:
 
-The backend entry point is `backend/app/main.py`.
-
-Implemented behavior:
-
-- Creates a FastAPI application with the configured app name.
-- Configures CORS from the `CORS_ORIGINS` environment variable.
-- Pings MongoDB during application lifespan startup.
-- Mounts the reservation router.
-- Provides `GET /` and `GET /health`.
-
-Implemented reservation API:
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /reservations` | Creates a reservation document in MongoDB |
-| `GET /reservations` | Lists reservation documents sorted by creation date descending |
-
-Current reservation fields:
-
-```json
-{
-  "id": "string",
-  "event_name": "string",
-  "date": "date",
-  "setup_start_time": "time",
-  "start_time": "time",
-  "end_time": "time",
-  "room": "seminarraum-5-003-004 | seminarraum-2-112 | aula-1-005",
-  "attendee_count": "number",
-  "organizer_type": "external_customer | public_sector_oda | cantonal_admin_zug | gibz_internal_school_event | gibz_internal_private_event",
-  "contact": {
-    "name": "string",
-    "email": "email",
-    "phone": "string",
-    "department": "string | null"
-  },
-  "billing_address": {
-    "name": "string",
-    "street": "string",
-    "postal_code_city": "string",
-    "invoice_note": "string | null"
-  },
-  "catering": {
-    "needed": "boolean",
-    "before_event": "catering window",
-    "during_event": "catering window",
-    "after_event": "catering window"
-  },
-  "setup": {
-    "seating_type": "seminar | block | theater | u_shape | banquet | exam",
-    "equipment": [{"type": "equipment enum", "quantity": "number"}],
-    "microphone_needed": "boolean",
-    "technical_support_hours": "number | null",
-    "regie_hours": "number | null"
-  },
-  "publication": "object | null",
-  "remarks": "string | null",
-  "terms_accepted": "boolean",
-  "status": "pending | confirmed | rejected | cancelled",
-  "created_at": "datetime",
-  "updated_at": "datetime"
-}
+```
+HTTP request
+  → router      (HTTP concerns, status codes, auth dependencies)
+    → service   (business rules: conflict detection, edit deadline, reminders)
+      → DAO     (all MongoDB queries; the only layer touching the driver)
+        → MongoDB
 ```
 
-The request uses nested objects for contact, billing address, catering, setup/equipment, and publication data so the API is easier for the frontend to consume and validate.
+- **Routers** (`app/routers/`) — translate HTTP ↔ domain and attach auth
+  dependencies (`require_staff`, `require_role`). Kept thin.
+- **Services** (`app/services/`) — conflict/overlap detection, customer edit
+  deadline, reminder selection. Never import the driver.
+- **DAOs** (`app/dao/`) — encapsulate every query (the module's required
+  decoupling layer; also what enables the in-memory test mock).
+- **Models** (`app/models/`) — Pydantic schemas; cross-field rules live in
+  `model_validator(mode="after")`, so invalid input is rejected as **422** before
+  reaching a handler.
 
-Current validation:
+## API endpoints
 
-- Required text fields must not be empty.
-- `contact.email` must be a valid email address.
-- `attendee_count` must be a positive number.
-- `room` must be one of the canonical room IDs.
-- `organizer_type` must be one of the explicit organizer categories.
-- `status` is stored as an enum value and defaults to `pending`.
-- `terms_accepted` must be `true`.
-- Time order must be `setup_start_time <= start_time < end_time`.
-- Overlapping reservations for the same room/date/time are rejected with `409 Conflict`.
-- Room capacity, seating type, equipment, microphone support, technical support, and regie hours are validated against room-specific rules.
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `POST /reservations` | public | Create a reservation; returns a one-time `edit_token` |
+| `GET /reservations/availability` | public | Booked slots only (no PII) for the booking calendar |
+| `GET /reservations/edit/{token}` | token | Load a reservation for customer editing |
+| `PATCH /reservations/edit/{token}` | token | Edit catering/setup/remarks until the deadline (403 after) |
+| `GET /reservations` | staff | List + filter (date range, catering, upcoming, past, status, `q`) |
+| `GET /reservations/{id}` | staff | Single reservation |
+| `PATCH /reservations/{id}` | staff | Update status / fields (conflict re-checked on reschedule) |
+| `DELETE /reservations/{id}` | admin | Delete (higher-authority override) |
+| `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` | — / cookie | Staff session (JWT in HTTP-only cookie) |
+| `GET /rooms` · `GET /rooms/{room_id}` | public | Room catalogue |
+| `GET /` · `GET /health` | public | Liveness |
 
-## Current Frontend
+## Authentication
 
-The frontend entry point is `frontend/src/app/page.tsx`.
+- **Staff** — `POST /auth/login` verifies a bcrypt hash and issues a JWT stored in
+  an **HTTP-only cookie**. `require_staff` gates management routes; `require_role`
+  restricts deletion to admins. There is no self-registration; accounts are seeded
+  via `python -m app.create_staff` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+- **Customers** — no account. Each reservation gets a cryptographically random
+  `edit_token` (`secrets.token_urlsafe`) used to view/edit it via
+  `/reservation/edit/?token=…` until `edit_deadline_days` before the event.
 
-Implemented behavior:
+## Reminders
 
-- Renders a simple Room Rental starter page.
-- Calls `getHealth()` from `frontend/src/lib/api.ts`.
-- Displays the backend health response as JSON.
-- Renders room catalogue and room detail pages for the real GIBZ room seed.
+When `REMINDERS_ENABLED=true`, an APScheduler job (started in the FastAPI
+lifespan) periodically selects active reservations within `reminder_window_days`
+that still miss catering/setup details and have not been reminded, emails the
+customer their edit link, and sets `reminder_sent=true` (at most one reminder).
+Sending degrades gracefully when SMTP is unconfigured.
 
-The frontend API base URL is resolved in this order:
+## Database
 
-1. `API_BASE_URL`
-2. `NEXT_PUBLIC_API_BASE_URL`
-3. `http://localhost:8000`
-
-The current frontend includes the room catalogue pages. Reservation forms, customer edit pages, and a staff dashboard are still planned.
-
-## Database Architecture
-
-MongoDB is used as the NoSQL database. In Docker Compose, it stores data in the named volume `mongodb_data`.
-
-Implemented collections:
-
-| Collection | Purpose |
-|---|---|
-| `rooms` | Real GIBZ room catalogue with capacity, equipment, prices, setup variants, contacts, and catering notes |
-| `reservations` | Stores created reservation documents |
-
-Planned collections:
-
-| Collection | Purpose |
-|---|---|
-| `staff` | Staff users and roles |
-| `config` | Configurable values such as reminder and edit-deadline days |
-
-MongoDB is appropriate for this project because reservation data can naturally grow into nested documents, for example with catering details, material requests, setup variants, reminder state, and status fields.
+MongoDB stores three collections — `reservations`, `rooms`, `users` — with JSON
+Schema validators (`database/init/01-collections.js`) and indexes
+(`02-indexes.js`). Data persists in the named volume `mongodb_data`. Full document
+shapes, the ISO-string time invariant, indexes, and example queries are in
+[DATABSE.md](DATABSE.md).
 
 ## Configuration
 
-Backend settings are loaded through Pydantic Settings in `backend/app/config.py`.
+Backend settings load through Pydantic Settings (`backend/app/config.py`), all
+overridable via environment variables / `backend/.env`:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `APP_NAME` | `room-rental-api` | FastAPI application name |
-| `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
-| `MONGODB_DB` | `room_rental` | Database name |
-| `CORS_ORIGINS` | `http://localhost:3000` | Allowed origins for browser requests |
+| `MONGODB_URL` / `MONGODB_DB` | `mongodb://localhost:27017` / `room_rental` | Database connection |
+| `CORS_ORIGINS` | `http://localhost:3000` | Allowed browser origins |
+| `EDIT_DEADLINE_DAYS` | `3` | Days before the event a customer may still edit |
+| `REMINDER_WINDOW_DAYS` | `5` | Window in which incomplete reservations are reminded |
+| `REMINDERS_ENABLED` / `REMINDER_INTERVAL_MINUTES` | `false` / `60` | Scheduler switch and cadence |
+| `JWT_SECRET` / `JWT_EXPIRE_MINUTES` | `change-me…` / `480` | Staff session signing/expiry |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` | empty / `1025` / … | Reminder email transport |
+| `PUBLIC_BASE_URL` | `http://localhost:3000` | Base for edit links in reminder emails |
 
-Frontend settings are provided through Docker Compose:
-
-| Variable | Value in Docker Compose | Purpose |
-|---|---|---|
-| `API_BASE_URL` | `http://backend:8000` | Backend URL for server-side frontend code |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Backend URL for browser/client-side code |
-
-## Planned Final Architecture
-
-The final project should extend the current baseline with these modules:
-
-- Room catalogue and room detail routes in the frontend.
-- Reservation creation and customer edit forms.
-- Staff login and staff dashboard.
-- Backend routers for rooms, authentication, staff operations, and configuration.
-- DAO classes for MongoDB collections so database access is no longer written directly in route handlers.
-- Service layer for conflict detection, edit deadlines, reminder eligibility, and filtering.
-- Optional reminder scheduler for incomplete catering/setup/material details.
-
-Planned target structure:
-
-```text
-backend/
-  app/
-    routers/
-      reservations.py
-      rooms.py
-      auth.py
-    dao/
-      reservation_dao.py
-      room_dao.py
-      staff_dao.py
-    services/
-      reservation_service.py
-      reminder_service.py
-    models/
-      reservation.py
-      room.py
-      staff.py
-```
-
-The current code should be refactored toward this structure only as features are implemented. The documentation should not claim those modules exist until they are added.
+Frontend resolves the backend URL as `API_BASE_URL` → `NEXT_PUBLIC_API_BASE_URL`
+→ `http://localhost:8000`.
 
 ## Backup and Restore
 
-MongoDB data is stored in the Docker named volume `mongodb_data`. Manual backup and restore are possible with `mongodump` and `mongorestore`.
-
-Backup:
-
-```bash
-docker exec room-rental-mongodb mongodump --db room_rental --archive=/tmp/room_rental_backup.archive
-docker cp room-rental-mongodb:/tmp/room_rental_backup.archive ./backups/
-```
-
-Restore:
-
-```bash
-docker cp ./backups/room_rental_backup.archive room-rental-mongodb:/tmp/
-docker exec room-rental-mongodb mongorestore --db room_rental --archive=/tmp/room_rental_backup.archive --drop
-```
-
-For the school project, manual backups before demos or larger changes are sufficient. A production deployment should add scheduled backups and MongoDB authentication.
+MongoDB data lives in the named volume `mongodb_data`. Manual backup/restore with
+`mongodump` / `mongorestore` — see
+[DEPLOYMENT.md](DEPLOYMENT.md#mongodb-backup-and-restore). For the school project,
+manual backups before demos are sufficient; production should add scheduled
+backups and MongoDB authentication.
