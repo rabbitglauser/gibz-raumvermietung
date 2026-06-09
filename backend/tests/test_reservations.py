@@ -16,6 +16,7 @@ sys.modules.setdefault("app.db", fake_db_module)
 
 from app.db import get_database  # noqa: E402
 from app.routers.reservations import router as reservations_router  # noqa: E402
+from app.security import get_current_user  # noqa: E402
 
 from .mocks import MockReservationsCollection  # noqa: E402
 
@@ -32,6 +33,23 @@ def mock_collection() -> MockReservationsCollection:
 def client(mock_collection):
     fake_db = SimpleNamespace(reservations=mock_collection)
     app.dependency_overrides[get_database] = lambda: fake_db
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def staff_client(mock_collection):
+    """Client with the staff-auth dependency stubbed out, for management
+    endpoints (list/get/patch). Auth itself is covered in test_staff_routes."""
+    fake_db = SimpleNamespace(reservations=mock_collection)
+    app.dependency_overrides[get_database] = lambda: fake_db
+    app.dependency_overrides[get_current_user] = lambda: {
+        "_id": "user-1",
+        "username": "tester",
+        "role": "admin",
+    }
     try:
         yield TestClient(app)
     finally:
@@ -233,7 +251,13 @@ def test_create_reservation_allows_adjacent_same_room_booking(client):
     assert response.status_code == 201
 
 
-def test_list_reservations_returns_typed_items(client):
+def test_list_reservations_requires_staff(client):
+    """Anonymous access to the management list is rejected."""
+    response = client.get("/reservations")
+    assert response.status_code == 401
+
+
+def test_list_reservations_returns_typed_items(staff_client):
     first_payload = valid_payload()
     second_payload = valid_payload()
     second_payload["event_name"] = "Second Presentation"
@@ -241,10 +265,10 @@ def test_list_reservations_returns_typed_items(client):
     second_payload["start_time"] = "12:30"
     second_payload["end_time"] = "14:00"
 
-    assert client.post("/reservations", json=first_payload).status_code == 201
-    assert client.post("/reservations", json=second_payload).status_code == 201
+    assert staff_client.post("/reservations", json=first_payload).status_code == 201
+    assert staff_client.post("/reservations", json=second_payload).status_code == 201
 
-    response = client.get("/reservations")
+    response = staff_client.get("/reservations")
 
     assert response.status_code == 200
     body = response.json()

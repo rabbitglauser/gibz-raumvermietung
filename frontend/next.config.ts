@@ -4,6 +4,9 @@ const repoName = "gibz-raumvermietung";
 const isGitHubPages = process.env.GITHUB_ACTIONS === "true";
 
 const nextConfig: NextConfig = {
+  // Static export for GitHub Pages. This requires every route to be
+  // statically renderable — no server-rendered / dynamic (`ƒ`) routes.
+  output: "export",
   turbopack: {
     root: process.cwd(),
   },

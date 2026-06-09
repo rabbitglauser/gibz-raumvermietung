@@ -20,6 +20,7 @@ import {
   type CreateResult,
   type ValidationError,
 } from "@/lib/reservations";
+import { assetPath } from "@/lib/utils";
 
 type ResultEntry = {
   iso: string;
@@ -27,6 +28,7 @@ type ResultEntry = {
   state: "pending" | "ok" | "conflict" | "error";
   message?: string;
   id?: string;
+  editToken?: string;
   validationErrors?: ValidationError[];
 };
 
@@ -63,7 +65,13 @@ export function StepReview({ form }: StepReviewProps) {
       sortedDates.map((d, i) => {
         const r = settled[i];
         if (r.ok) {
-          return { iso: toIso(d), date: d, state: "ok", id: r.data.id };
+          return {
+            iso: toIso(d),
+            date: d,
+            state: "ok",
+            id: r.data.id,
+            editToken: r.data.edit_token ?? undefined,
+          };
         }
         if (r.status === 409) {
           return {
@@ -149,6 +157,35 @@ export function StepReview({ form }: StepReviewProps) {
           })}
         </ul>
       </section>
+
+      {results.some((r) => r.state === "ok" && r.editToken) && (
+        <section className="grid gap-2 border border-emerald-200 bg-emerald-50 p-4 text-[12px] text-emerald-900">
+          <h3 className="font-semibold tracking-[0.06em]">
+            BEARBEITUNGSLINKS
+          </h3>
+          <p>
+            Speichern Sie diese Links, um Catering, Einrichtung und Material
+            später (bis einige Tage vor dem Anlass) zu ergänzen:
+          </p>
+          <ul className="grid gap-1">
+            {results
+              .filter((r) => r.state === "ok" && r.editToken)
+              .map((r) => (
+                <li key={r.iso} className="break-all">
+                  <span className="font-semibold">
+                    {format(r.date, "d. MMM yyyy", { locale: de })}:
+                  </span>{" "}
+                  <a
+                    className="underline"
+                    href={assetPath(`/reservation/edit/?token=${r.editToken}`)}
+                  >
+                    {assetPath(`/reservation/edit/?token=${r.editToken}`)}
+                  </a>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
 
       <div className="flex items-center justify-end gap-3">
         {allOk && (

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { BookingFormValues } from "@/lib/booking-schema";
-import { cn } from "@/lib/utils";
+import { assetPath, cn } from "@/lib/utils";
 
 interface StepExtrasProps {
   form: UseFormReturn<BookingFormValues>;
@@ -198,7 +198,7 @@ export function StepExtras({ form, publicationOptions }: StepExtrasProps) {
             Ich akzeptiere die Reservationsbedingungen und bestätige, dass die
             Angaben korrekt sind.
             <a
-              href="/agb"
+              href={assetPath("/agb/")}
               target="_blank"
               rel="noreferrer"
               onClick={(event) => event.stopPropagation()}

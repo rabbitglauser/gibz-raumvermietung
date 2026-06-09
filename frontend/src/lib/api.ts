@@ -108,11 +108,19 @@ export interface ReservationCreate {
 export interface Reservation extends ReservationCreate {
   id: string;
   status: ReservationStatus;
+  // Only present on the create response — used to build the customer edit link.
   edit_token?: string | null;
   reminder_sent_at?: string | null;
   reminder_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface AvailabilitySlot {
+  room: RoomId;
+  date: string;
+  setup_start_time: string;
+  end_time: string;
 }
 
 export interface RoomContact {
@@ -249,4 +257,87 @@ export async function getRoom(roomId: string): Promise<Room | null> {
   }
 
   return res.json();
+}
+
+// --- Public availability (no customer data) -------------------------------
+
+export async function getAvailability(
+  roomId?: string,
+): Promise<AvailabilitySlot[]> {
+  if (!API_BASE_URL) {
+    return [];
+  }
+  const url = new URL(`${API_BASE_URL}/reservations/availability`);
+  if (roomId) {
+    url.searchParams.set("room", roomId);
+  }
+  try {
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) {
+      return [];
+    }
+    const body = (await res.json()) as { items?: AvailabilitySlot[] };
+    return body.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// --- Customer edit access (token) -----------------------------------------
+
+export async function getReservationByToken(
+  token: string,
+): Promise<Reservation | null> {
+  if (!API_BASE_URL) return null;
+  const res = await fetch(`${API_BASE_URL}/reservations/edit/${token}`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to load reservation: ${res.status}`);
+  return res.json();
+}
+
+export type UpdateResult =
+  | { ok: true; data: Reservation }
+  | { ok: false; status: number; message: string };
+
+async function parseError(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (typeof body?.detail === "string") return body.detail;
+    if (Array.isArray(body?.detail)) {
+      return body.detail
+        .map((d: { msg?: string }) => d.msg ?? "Ungültige Eingabe")
+        .join("; ");
+    }
+  } catch {
+    // ignore
+  }
+  return `Fehler ${res.status}`;
+}
+
+export async function updateReservationByToken(
+  token: string,
+  patch: Partial<ReservationCreate>,
+): Promise<UpdateResult> {
+  if (!API_BASE_URL) {
+    return { ok: false, status: 0, message: "API nicht konfiguriert" };
+  }
+  try {
+    const res = await fetch(`${API_BASE_URL}/reservations/edit/${token}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) {
+      return { ok: true, data: (await res.json()) as Reservation };
+    }
+    return { ok: false, status: res.status, message: await parseError(res) };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      message: err instanceof Error ? err.message : "Netzwerkfehler",
+    };
+  }
 }

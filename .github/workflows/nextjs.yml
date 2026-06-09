@@ -42,7 +42,9 @@ jobs:
       - name: Build Next.js app
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+          # Repo variable wins if set; otherwise fall back to the deployed
+          # Render backend so the build always has an API URL baked in.
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL || 'https://gibz-raumvermietung.onrender.com' }}
         run: npm run build
 
       - name: Upload artifact

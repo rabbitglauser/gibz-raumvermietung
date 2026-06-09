@@ -74,6 +74,17 @@ The backend reads environment variables through Pydantic Settings in `backend/ap
 | `MONGODB_URL` | `mongodb://localhost:27017` | MongoDB connection string |
 | `MONGODB_DB` | `room_rental` | MongoDB database name |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
+| `EDIT_DEADLINE_DAYS` | `3` | Days before the event a customer may still edit |
+| `REMINDER_WINDOW_DAYS` | `5` | Window in which incomplete reservations get reminded |
+| `REMINDERS_ENABLED` | `false` | Master switch for the reminder scheduler |
+| `REMINDER_INTERVAL_MINUTES` | `60` | How often the reminder job runs |
+| `JWT_SECRET` | `change-me-in-production` | **Set a strong random value in production** |
+| `JWT_EXPIRE_MINUTES` | `480` | Staff session lifetime |
+| `AUTH_COOKIE_SECURE` | `false` | Require HTTPS for the auth cookie (enable in prod) |
+| `SMTP_HOST` | *(empty)* | SMTP host for reminder emails; empty disables sending |
+| `SMTP_PORT` | `1025` | SMTP port (MailHog default) |
+| `SMTP_FROM` | `raumvermietung@gibz.ch` | Reminder sender address |
+| `PUBLIC_BASE_URL` | `http://localhost:3000` | Base URL for edit links in reminder emails |
 
 When the backend runs inside Docker Compose, `MONGODB_URL` should use the Docker service name:
 
@@ -144,11 +155,60 @@ curl -X POST http://localhost:8000/reservations ^
   -d "{\"event_name\":\"M165 Project Presentation\",\"date\":\"2026-06-15\",\"setup_start_time\":\"08:30\",\"start_time\":\"09:00\",\"end_time\":\"12:00\",\"room\":\"aula-1-005\",\"attendee_count\":120,\"organizer_type\":\"gibz_internal_school_event\",\"contact\":{\"name\":\"Test User\",\"email\":\"test@example.com\",\"phone\":\"+41 41 123 45 67\"},\"billing_address\":{\"name\":\"GIBZ Test Company\",\"street\":\"Industriestrasse 52\",\"postal_code_city\":\"6300 Zug\"},\"setup\":{\"seating_type\":\"theater\",\"equipment\":[{\"type\":\"projector\",\"quantity\":1}],\"microphone_needed\":true,\"technical_support_hours\":1.5,\"regie_hours\":1.0},\"terms_accepted\":true}"
 ```
 
-List reservations:
+List reservations (staff-only — requires a login cookie):
 
 ```bash
-curl http://localhost:8000/reservations
+# log in and store the session cookie, then list
+curl -c cookies.txt -X POST http://localhost:8000/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"admin\",\"password\":\"admin-secret\"}"
+curl -b cookies.txt http://localhost:8000/reservations
 ```
+
+## Staff Accounts
+
+There is no self-registration. Create staff accounts with the bundled CLI
+(run inside the backend container, or locally against a reachable MongoDB):
+
+```bash
+docker compose exec backend python -m app.create_staff ^
+  --username admin --password admin-secret ^
+  --name "Admin" --email admin@gibz.ch --role admin
+```
+
+Roles: `staff`, `secretariat`, `hausdienst`, `restaurant_treff`, `admin`. Only
+`admin` may delete reservations ("higher authority override"). Staff then log in
+at `http://localhost:3000/dashboard`.
+
+## Customer Edit Links
+
+Creating a reservation returns a one-time `edit_token`. The customer uses it at:
+
+```text
+http://localhost:3000/reservation/edit/?token=<edit_token>
+```
+
+Edits to catering, setup, and remarks are accepted until `EDIT_DEADLINE_DAYS`
+before the event; afterwards the API returns `403`.
+
+## Reminders (optional)
+
+To demo automatic reminders, start the optional MailHog service and enable the
+scheduler in `backend/.env`:
+
+```text
+REMINDERS_ENABLED=true
+SMTP_HOST=mailhog
+PUBLIC_BASE_URL=http://localhost:3000
+```
+
+```bash
+docker compose up --build        # mailhog is included
+```
+
+The job runs every `REMINDER_INTERVAL_MINUTES`, emailing the edit link to
+customers whose event is within `REMINDER_WINDOW_DAYS` and whose catering/setup
+details are incomplete. Captured emails appear at `http://localhost:8025`.
 
 ## MongoDB Backup and Restore
 

@@ -1,7 +1,7 @@
 <h1 align="center">
   <img
     src="https://github.com/user-attachments/assets/070048c2-46a3-45c7-8dea-92b34890dcb0"
-    alt="SuperLottomatch"
+    alt="Raumvermietung"
     width="200"
   />
   <br/>
@@ -26,6 +26,18 @@
 Web application for the GIBZ room reservation project in Module 165, using a Next.js frontend, FastAPI backend, and MongoDB as the NoSQL database.
 
 The project replaces the PDF-based room reservation workflow with an API-backed web application. The current implementation focuses on the backend reservation API and the Dockerized project setup.
+
+# Links for the website
+
+users: https://rabbitglauser.github.io/gibz-raumvermietung/raeume/
+
+admin: https://rabbitglauser.github.io/gibz-raumvermietung/staff/
+
+admin login
+
+staff
+
+
 
 ## Current Features
 

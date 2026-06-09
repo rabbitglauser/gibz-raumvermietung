@@ -9,12 +9,12 @@ import type { UseFormReturn } from "react-hook-form";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Reservation } from "@/lib/api";
+import type { AvailabilitySlot } from "@/lib/api";
 import {
   type BookingFormValues,
   toIso,
 } from "@/lib/booking-schema";
-import { buildAvailability, getReservations } from "@/lib/reservations";
+import { buildAvailability, getAvailability } from "@/lib/reservations";
 import { cn } from "@/lib/utils";
 
 interface StepDatesProps {
@@ -26,7 +26,7 @@ const DEFAULT_START = "08:00";
 const DEFAULT_END = "17:00";
 
 export function StepDates({ form, roomId }: StepDatesProps) {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<AvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
 
   const dates = form.watch("dates");
@@ -34,7 +34,7 @@ export function StepDates({ form, roomId }: StepDatesProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getReservations(roomId)
+    getAvailability(roomId)
       .then((items) => {
         if (!cancelled) setReservations(items);
       })

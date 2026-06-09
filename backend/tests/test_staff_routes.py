@@ -1,5 +1,9 @@
 from types import SimpleNamespace
 
+import sys
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI

@@ -7,7 +7,6 @@ from ..db import get_database
 from ..models.enums import UserRole
 from ..models.user import UserCreate, UserPublic, user_to_public
 from ..services.auth_service import (
-    STAFF_ROLES,
     AuthPermissionError,
     AuthTokenError,
     StaffPrincipal,
@@ -23,11 +22,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1)
     password: str = Field(min_length=1)
-
-
-class CurrentStaff(BaseModel):
-    username: str
-    role: str
 
 
 class StaffUserCreateRequest(BaseModel):
@@ -64,11 +58,13 @@ def clear_auth_cookie(response: Response) -> None:
 
 def require_staff(request: Request) -> StaffPrincipal:
     token = request.cookies.get(settings.auth_cookie_name)
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Staff login required",
         )
+
     try:
         return decode_auth_token(token)
     except AuthTokenError as exc:
@@ -89,6 +85,7 @@ def require_admin(principal: StaffPrincipal = Depends(require_staff)) -> StaffPr
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
+
     return principal
 
 
@@ -99,6 +96,7 @@ async def login(
     user_dao: UserDAO = Depends(get_user_dao),
 ):
     user = await user_dao.get_by_username(payload.username)
+
     if user is None or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,18 +105,29 @@ async def login(
 
     token = create_auth_token(user["username"], user["role"])
     set_auth_cookie(response, token)
+
     return user_to_public(user)
 
 
-@router.post("/logout")
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(response: Response):
     clear_auth_cookie(response)
-    return {"status": "logged_out"}
 
 
-@router.get("/me", response_model=CurrentStaff)
-async def me(principal: StaffPrincipal = Depends(require_staff)):
-    return {"username": principal.username, "role": principal.role}
+@router.get("/me", response_model=UserPublic)
+async def me(
+    principal: StaffPrincipal = Depends(require_staff),
+    user_dao: UserDAO = Depends(get_user_dao),
+):
+    user = await user_dao.get_by_username(principal.username)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists",
+        )
+
+    return user_to_public(user)
 
 
 @router.get("/users", response_model=list[UserPublic])
@@ -137,11 +146,13 @@ async def create_staff_user(
     _admin: StaffPrincipal = Depends(require_admin),
 ):
     existing = await user_dao.get_by_username(payload.username)
+
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already taken",
         )
+
     doc = await user_dao.create(
         UserCreate(
             username=payload.username,
@@ -151,4 +162,5 @@ async def create_staff_user(
             email=payload.email,
         )
     )
+
     return user_to_public(doc)

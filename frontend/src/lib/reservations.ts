@@ -1,10 +1,28 @@
 import type {
+  CateringWindow,
   EquipmentRequest,
   Reservation,
   ReservationCreate,
 } from "./api";
 import { API_BASE_URL } from "./api";
 import type { BookingFormValues } from "./booking-schema";
+
+// The backend stores window times as ISO time strings (or null). Empty form
+// inputs must become null, not "", or Pydantic's `time` rejects them. Times
+// are only sent for enabled windows; an enabled window without a time stays
+// null so the backend's "enabled windows require times" rule still fires.
+function cleanCateringWindow(w: {
+  enabled?: boolean;
+  from_time?: string | null;
+  to_time?: string | null;
+}): CateringWindow {
+  const enabled = !!w?.enabled;
+  return {
+    enabled,
+    from_time: enabled && w?.from_time ? padTime(w.from_time) : null,
+    to_time: enabled && w?.to_time ? padTime(w.to_time) : null,
+  };
+}
 
 export function isoDate(date: Date): string {
   const y = date.getFullYear();
@@ -42,9 +60,9 @@ export function buildPayload(
     billing_address: form.billing,
     catering: {
       needed: form.catering.needed,
-      before_event: form.catering.before_event,
-      during_event: form.catering.during_event,
-      after_event: form.catering.after_event,
+      before_event: cleanCateringWindow(form.catering.before_event),
+      during_event: cleanCateringWindow(form.catering.during_event),
+      after_event: cleanCateringWindow(form.catering.after_event),
     },
     setup: {
       seating_type: form.setup.seating_type,
@@ -179,29 +197,10 @@ export async function updateReservation(
   }
 }
 
-export async function getReservations(roomId: string): Promise<Reservation[]> {
-  if (!API_BASE_URL) {
-    return [];
-  }
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/reservations`, {
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return [];
-    }
-    const body = (await res.json()) as { items?: Reservation[] };
-    return (body.items ?? []).filter(
-      (r) =>
-        r.room === roomId &&
-        r.status !== "cancelled" &&
-        r.status !== "rejected",
-    );
-  } catch {
-    return [];
-  }
-}
+// Availability comes from the public /reservations/availability endpoint,
+// which returns only booked slots (no customer data). The full reservation
+// list is staff-only.
+export { getAvailability } from "./api";
 
 const FULL_DAY_START = "07:00:00";
 const FULL_DAY_END = "22:00:00";
@@ -220,7 +219,9 @@ function intervalsCoverFullDay(
   return cursor >= FULL_DAY_END;
 }
 
-export function buildAvailability(reservations: Reservation[]): {
+type SlotLike = { date: string; setup_start_time: string; end_time: string };
+
+export function buildAvailability(reservations: SlotLike[]): {
   fullyBooked: Set<string>;
   partiallyBooked: Set<string>;
 } {
