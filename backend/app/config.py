@@ -21,12 +21,16 @@ class Settings(BaseSettings):
     reminder_days_before: int = 7
     reminder_scheduler_enabled: bool = False
     reminder_scheduler_interval_seconds: int = 86400
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: str | None = None
-    smtp_from_email: str | None = None
-    smtp_use_tls: bool = True
+    # SMTP for reminder emails. The reminder run is enabled as soon as
+    # smtp_host is set (smtp_from_email has a sensible default). Locally this
+    # points at the MailHog container (host "mailhog", port 1025, no TLS); in
+    # production set these to the real mail server via environment variables.
+    smtp_host: str = ""
+    smtp_port: int = 1025
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "raumvermietung@gibz.ch"
+    smtp_use_tls: bool = False
 
     # Customer self-service window. Edits are allowed until this many days
     # before the event date. "Variabel einstellbar" per the M165 brief — do
@@ -49,14 +53,6 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "rr_session"
     # Whether the auth cookie requires HTTPS. Off for local/demo.
     auth_cookie_secure: bool = False
-
-    # SMTP for reminder emails. Reminders degrade gracefully (log + skip)
-    # when smtp_host is empty.
-    smtp_host: str = ""
-    smtp_port: int = 1025
-    smtp_from: str = "raumvermietung@gibz.ch"
-    smtp_user: str = ""
-    smtp_password: str = ""
 
     # Base URL used to build customer edit links inside reminder emails.
     public_base_url: str = "http://localhost:3000"
