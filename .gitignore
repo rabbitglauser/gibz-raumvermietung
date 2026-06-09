@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Environment secrets
+backend/.env
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+
+# Editor / OS
+.DS_Store
+*.swp

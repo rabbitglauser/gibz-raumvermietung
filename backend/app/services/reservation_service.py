@@ -42,3 +42,6 @@ class ReservationService:
     ) -> Optional[dict]:
         doc = await self.dao.update_status(reservation_id, status)
         return reservation_to_response(doc) if doc else None
+
+    async def delete(self, reservation_id: str) -> bool:
+        return await self.dao.delete(reservation_id)

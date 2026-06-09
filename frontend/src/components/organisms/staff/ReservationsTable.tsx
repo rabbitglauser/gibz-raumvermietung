@@ -3,38 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Reservation, ReservationStatus } from "@/lib/api";
+import { staffUpdateStatus, staffDeleteReservation } from "@/lib/staff-api";
 import {
-  staffUpdateStatus,
-  staffDeleteReservation,
-} from "@/lib/staff-api";
-
-const STATUS_LABELS: Record<ReservationStatus, string> = {
-  pending: "Ausstehend",
-  confirmed: "Bestätigt",
-  rejected: "Abgelehnt",
-  cancelled: "Storniert",
-};
-
-const STATUS_COLORS: Record<ReservationStatus, React.CSSProperties> = {
-  pending: { backgroundColor: "#fef3c7", color: "#92400e" },
-  confirmed: { backgroundColor: "#d1fae5", color: "#065f46" },
-  rejected: { backgroundColor: "#fee2e2", color: "#991b1b" },
-  cancelled: { backgroundColor: "#f1f5f9", color: "#475569" },
-};
-
-const ROOM_LABELS: Record<string, string> = {
-  "seminarraum-5-003-004": "Seminarraum 5-003/004",
-  "seminarraum-2-112": "Seminarraum 2-112",
-  "aula-1-005": "Aula 1-005",
-};
+  STATUS_LABELS,
+  STATUS_COLORS,
+  ROOM_LABELS,
+  fmtDate,
+  fmtTime,
+} from "@/lib/staff-utils";
 
 function fmt(date: string, start: string, end: string): string {
-  const d = new Date(date).toLocaleDateString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  return `${d}, ${start.slice(0, 5)}–${end.slice(0, 5)}`;
+  return `${fmtDate(date)}, ${fmtTime(start)}–${fmtTime(end)}`;
 }
 
 interface ReservationsTableProps {

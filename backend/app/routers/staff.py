@@ -1,14 +1,16 @@
+import hmac
 from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from ..config import settings
-from ..dao.reservation_dao import ReservationDAO
+from ..dao.reservation_dao import ReservationDAO  # needed by get_reservation_service factory
 from ..db import get_database
 from ..models.enums import ReservationStatus
 from ..models.reservation import ReservationList, ReservationOut
 from ..services.reservation_service import ReservationService
+
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 
@@ -17,13 +19,9 @@ def get_reservation_service(database=Depends(get_database)) -> ReservationServic
     return ReservationService(ReservationDAO(database))
 
 
-def get_reservation_dao(database=Depends(get_database)) -> ReservationDAO:
-    return ReservationDAO(database)
-
-
 async def require_staff(authorization: Optional[str] = Header(default=None)) -> None:
     expected = f"Bearer {settings.staff_secret_token}"
-    if not authorization or authorization != expected:
+    if not authorization or not hmac.compare_digest(authorization, expected):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing staff token",
@@ -94,9 +92,9 @@ async def update_status(
 @router.delete("/reservations/{reservation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_reservation(
     reservation_id: str,
-    dao: ReservationDAO = Depends(get_reservation_dao),
+    service: ReservationService = Depends(get_reservation_service),
     _: None = Depends(require_staff),
 ):
-    deleted = await dao.delete(reservation_id)
+    deleted = await service.delete(reservation_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found")
