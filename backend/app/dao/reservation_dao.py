@@ -2,8 +2,25 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from bson import ObjectId
+from bson.errors import InvalidId
+
 from ..models.reservation import ReservationCreate
 from ..models.enums import ReservationStatus
+
+
+def _id_filter(reservation_id):
+    """Match either an ObjectId-backed _id (production) or a string _id (tests/legacy).
+
+    MongoDB stores auto-generated `_id`s as ObjectIds, but the API exposes them as
+    hex strings via `str(doc["_id"])`. A raw string never matches a stored ObjectId,
+    so coerce it here. Non-ObjectId strings (the in-memory test mock, any legacy
+    string ids) fall through unchanged.
+    """
+    try:
+        return ObjectId(reservation_id)
+    except (InvalidId, TypeError):
+        return reservation_id
 
 
 class ReservationDAO:
@@ -31,7 +48,7 @@ class ReservationDAO:
         return created
 
     async def get_by_id(self, reservation_id: str) -> Optional[dict]:
-        return await self.collection.find_one({"_id": reservation_id})
+        return await self.collection.find_one({"_id": _id_filter(reservation_id)})
 
     async def get_by_edit_token(self, token: str) -> Optional[dict]:
         return await self.collection.find_one({"edit_token": token})
@@ -66,7 +83,7 @@ class ReservationDAO:
             "end_time": {"$gt": payload.setup_start_time.isoformat()},
         }
         if exclude_id is not None:
-            conflict_filter["_id"] = {"$ne": exclude_id}
+            conflict_filter["_id"] = {"$ne": _id_filter(exclude_id)}
         return await self.collection.find_one(conflict_filter) is not None
 
     async def update_reservation(
@@ -76,7 +93,7 @@ class ReservationDAO:
         updates = payload.model_dump(mode="json")
         updates["updated_at"] = now
         await self.collection.update_one(
-            {"_id": reservation_id},
+            {"_id": _id_filter(reservation_id)},
             {"$set": updates},
         )
         return await self.get_by_id(reservation_id)
@@ -85,7 +102,7 @@ class ReservationDAO:
         self, reservation_id: str, status: ReservationStatus
     ) -> Optional[dict]:
         await self.collection.update_one(
-            {"_id": reservation_id},
+            {"_id": _id_filter(reservation_id)},
             {
                 "$set": {
                     "status": status.value,
@@ -117,7 +134,7 @@ class ReservationDAO:
         if doc is None:
             return None
         await self.collection.update_one(
-            {"_id": reservation_id},
+            {"_id": _id_filter(reservation_id)},
             {
                 "$set": {
                     "reminder_sent_at": datetime.now(timezone.utc),
