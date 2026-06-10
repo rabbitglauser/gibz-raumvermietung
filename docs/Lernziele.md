@@ -4,6 +4,9 @@ Statusübersicht der Bewertungskriterien aus dem Projektauftrag M165
 (NoSQL-Datenbanken einsetzen, FS 2026).
 **Total (geschätzt): 38 P · Note 6.0 (geschätzt): 36 P**
 
+Letzte Aktualisierung: 2026-06-09 (abgeglichen mit Code, `GAP_ANALYSIS.md`,
+`PROJECT_DOCUMENTATION.md`).
+
 > Hinweis: Die Punkteverteilung ist eine eigene Schätzung — die offizielle
 > M165-Aufgabenstellung definiert keine Punkte pro Kriterium.
 
@@ -15,11 +18,11 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Räume, Kapazität, Bestuhlung, Equipment abrufbar | 1 | [x] | `backend/app/routers/rooms.py`, `backend/app/models/reservation.py` (`ROOM_RULES` table) |
+| Räume, Kapazität, Bestuhlung, Equipment abrufbar | 1 | [x] | `backend/app/routers/rooms.py`, `backend/app/models/room.py` (`ROOM_RULES` / `Room`) |
 | Verfügbarkeit (Konfliktprüfung gegen bestehende Reservationen) | 1 | [x] | `backend/app/dao/reservation_dao.py:has_conflict` |
-| Bilder, Preise, AGB | 1 | [ ] | noch nicht im Modell/Endpoint |
+| Bilder, Preise, AGB | 1 | [x] | `RoomPrice` (`*_chf`), `image_path` in `backend/app/models/room.py`; `/agb`-Seite + AGB-Checkbox im Booking-Wizard |
 
-**Zwischensumme: 2 / 3** — TODO: Bilder, Preise und AGB-Felder zu Räumen ergänzen.
+**Zwischensumme: 3 / 3**
 
 ## Funktionale Anforderungen — Raumreservierung (4 P)
 
@@ -36,45 +39,45 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| `PUT/PATCH /reservations/{id}` Edit-Endpoint | 2 | [ ] | Test geskipped: `backend/tests/test_edit_deadline.py` ("PUT/PATCH route not implemented yet") |
-| Deadline (variabel einstellbar) erzwingt Sperre vor Anlass | 1 | [ ] | Konfigurations-Parameter und Logik fehlen |
+| Edit-Endpoint (Reservation nachträglich ändern) | 2 | [x] | `GET/PUT /reservations/edit/{token}`; Tests in `backend/tests/test_edit_deadline.py` (nicht mehr geskipped) |
+| Deadline (variabel einstellbar) erzwingt Sperre vor Anlass | 1 | [x] | Konfigurierbar `edit_deadline_hours` in `config.py`; 403 nach Cutoff |
 
-**Zwischensumme: 0 / 3** — TODO: Update-Route + variable Deadline aus `config.py`.
+**Zwischensumme: 3 / 3** — Hinweis: Staff-Vollzugriff `PUT/PATCH /reservations/{id}` (per ID) noch offen, optional.
 
 ## Funktionale Anforderungen — Catering / Einrichtung / Material (2 P)
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
 | Optionale Felder (Catering, Setup, Material) im Modell | 1 | [x] | `CateringInfo`, `SetupInfo` in `backend/app/models/reservation.py` |
-| Nachträgliches Ergänzen via Update-Endpoint | 1 | [~] | Modell unterstützt es, aber Update-Route fehlt (s. Block oben) |
+| Nachträgliches Ergänzen via Update-Endpoint | 1 | [x] | über Customer-Edit `PUT /reservations/edit/{token}` |
 
-**Zwischensumme: 1 / 2** — gekoppelt an Edit-Endpoint.
+**Zwischensumme: 2 / 2**
 
 ## Funktionale Anforderungen — Auto-Reminders (2 P)
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Automatische Erinnerung bei fehlenden Catering-/Setup-Angaben | 2 | [ ] | kein Scheduler / Cron / Mail-Service vorhanden |
+| Erinnerung bei fehlenden Catering-/Setup-Angaben | 2 | [~] | Missing-Info-Detection + Mail-Template + SMTP-Service vorhanden; Auslösung **manuell** via `POST /reminders/run` (kein Scheduler). Tests: `backend/tests/test_reminders.py` |
 
-**Zwischensumme: 0 / 2** — TODO: Reminder-Service + Mail/Notification-Channel.
+**Zwischensumme: 1–2 / 2** — Risiko: Rubrik erwartet *automatische* Erinnerung. Manuell ist „by design" dokumentiert. Voller Punkt mit APScheduler-Cron oder Lehrperson-OK.
 
 ## Funktionale Anforderungen — Staff CRUD & Filter (4 P)
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Staff-Endpoints (Hausdienst/Sekretariat/Treff) für CRUD | 2 | [ ] | Tests geskipped: `backend/tests/test_staff_routes.py` |
-| Filter `Zeitraum`, `Catering`, `anstehend`, `vergangen` | 2 | [ ] | `GET /reservations` ohne Query-Params in `backend/app/routers/reservations.py` |
+| Staff-Endpoints (Hausdienst/Sekretariat/Treff) für CRUD | 2 | [x] | Status-Update / Cancel-Routen; Tests `backend/tests/test_staff_routes.py` (nicht mehr geskipped) |
+| Filter `Zeitraum`, `Catering`, `anstehend`, `vergangen` | 2 | [x] | `GET /reservations?from_date=&to_date=&has_catering=&upcoming=&past=`; Filter-Tests vorhanden |
 
-**Zwischensumme: 0 / 4** — TODO: Staff-Router + Query-Filter.
+**Zwischensumme: 4 / 4**
 
 ## Funktionale Anforderungen — Auth / Rollen (2 P)
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Rollen-Enum + User-DAO | 1 | [~] | `UserRole` in `backend/app/models/enums.py`, `backend/app/dao/user_dao.py` (Skeleton) |
-| Auth-Dependency / Middleware | 1 | [ ] | nicht implementiert |
+| Rollen-Enum + User-DAO | 1 | [x] | `UserRole` in `backend/app/models/enums.py`, `backend/app/dao/user_dao.py` |
+| Auth-Dependency / Middleware | 1 | [x] | bcrypt-Hashing + PyJWT HTTP-only-Cookie + Staff-Auth-Dependency; Tests `test_auth_routes.py` |
 
-**Zwischensumme: 1 / 2** — TODO: FastAPI-Dependency für Staff-Auth.
+**Zwischensumme: 2 / 2**
 
 ## NFR — NoSQL-Datenbank & DAO (3 P)
 
@@ -89,7 +92,7 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Anleitung/Funktion für Backup & Restore | 1 | [x] | `docs/DEPLOYMENT.md` (mongodump/mongorestore-Block), `docs/ARCHITECTURE.md` |
+| Anleitung/Funktion für Backup & Restore | 1 | [x] | `scripts/backup-mongodb.ps1`, `scripts/restore-mongodb.ps1`, `scripts/verify-mongodb-restore.ps1`, `docs/BACKUP_RESTORE.md` |
 
 **Zwischensumme: 1 / 1**
 
@@ -98,7 +101,7 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
 | Pydantic-Validierung (Pflichtfelder, Datum, Zeitraum, Werte) | 1 | [x] | `backend/app/models/reservation.py` (`field_validator`, `model_validator`) |
-| Verständliche Fehlerausgabe (422 bei Validation, 409 bei Conflict) | 1 | [x] | FastAPI-Default + `ReservationConflictError` |
+| Verständliche Fehlerausgabe (422 bei Validation, 409 bei Conflict) | 1 | [x] | FastAPI-Default + `ReservationConflictError`; Tests `test_validation_errors.py` |
 
 **Zwischensumme: 2 / 2**
 
@@ -106,7 +109,7 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Env-Vars statt Hardcoding (Mongo-URL, Port, CORS, …) | 1 | [x] | `backend/app/config.py` (Pydantic Settings), `backend/.env` |
+| Env-Vars statt Hardcoding (Mongo-URL, Port, CORS, …) | 1 | [x] | `backend/app/config.py` (Pydantic Settings), `backend/.env.example` |
 
 **Zwischensumme: 1 / 1**
 
@@ -122,20 +125,20 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Architektur-Diagramm + Tech-Stack | 1 | [x] | `docs/ARCHITECTURE.md` (Mermaid), `docs/DATA_MODEL.md`, `README.md` |
-| Installationsanleitung | 1 | [x] | `docs/DEPLOYMENT.md`, `README.md` |
-| Fazit / Zusammenfassung | 1 | [ ] | nicht vorhanden — TODO am Ende der Arbeit |
+| Architektur-Diagramm + Tech-Stack | 1 | [x] | `docs/ARCHITECTURE.md` (Mermaid), `docs/DATA_MODEL.md`, `PROJECT_DOCUMENTATION.md` §3.2/§3.3 |
+| Installationsanleitung | 1 | [x] | `PROJECT_DOCUMENTATION.md` §3.5, `docs/DEPLOYMENT.md`, `README.md` |
+| Fazit / Zusammenfassung | 1 | [x] | `PROJECT_DOCUMENTATION.md` §3.6 |
 
-**Zwischensumme: 2 / 3** — TODO: Fazit-Sektion am Schluss.
+**Zwischensumme: 3 / 3** — Hinweis: PDF-Export für die Abgabe noch offen (s. Projektabgabe).
 
 ## Tests (2 P)
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Backend-Tests (Health, Reservations, Rooms, DAO) | 1 | [x] | `backend/tests/test_health.py`, `test_reservations.py`, `test_rooms.py`, `test_dao.py` |
+| Backend-Tests (Health, Reservations, Rooms, DAO, Auth, Reminders) | 1 | [x] | `backend/tests/` — `pytest -q` → 65 passed |
 | Frontend-Tests | 1 | [ ] | keine Test-Dateien unter `frontend/src/` |
 
-**Zwischensumme: 1 / 2** — TODO: Jest/Vitest + React Testing Library aufsetzen.
+**Zwischensumme: 1 / 2** — TODO: Vitest/Jest + React Testing Library aufsetzen.
 
 ## CI/CD (1 P)
 
@@ -149,7 +152,7 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Kriterium | P | Status | Nachweis |
 |---|---|---|---|
-| Screencast (max. 10 min) — Abgabe 24.06.2026 | 2 | [ ] | offen |
+| Screencast (max. 10 min) — Abgabe 24.06.2026 | 2 | [ ] | Skript vorhanden (`docs/SCREENCAST.md`); Aufnahme + MP4-Export offen |
 
 **Zwischensumme: 0 / 2** — kommt am Schluss der Projektphase.
 
@@ -176,22 +179,19 @@ Legende: `[x]` erledigt · `[~]` teilweise · `[ ]` offen
 
 | Block | Punkte |
 |---|---|
-| Sicher erledigt | ~18 |
-| Teilweise (Edit, Catering-Update, Auth, CI, Doku-Fazit) | 2–3 |
-| Extern / noch ausstehend (Reminders, Staff CRUD, Filter, Reminders, Screencast, Zusatzfunktionen, GitLab) | 17 |
-| **Aktuell wahrscheinlich** | **~18 / 38** |
+| Sicher erledigt | ~31 |
+| Reminders (manuell, Risiko auf 2. Punkt) | +0–1 |
+| Offen (Frontend-Tests, Backend-CI, Screencast, GitLab/PDF, Zusatzfunktion) | 7 |
+| **Aktuell wahrscheinlich** | **~31 / 38** |
 | **Zielmarke 6.0** | **36 / 38** |
 
 ## Offene Punkte / TODOs
 
-1. **Edit-Endpoint** `PUT/PATCH /reservations/{id}` mit variabler Deadline aus `config.py` — un-skipt `test_edit_deadline.py` (3 P).
-2. **Staff-Router & Filter** (`Zeitraum`, `Catering`, `anstehend`, `vergangen`) implementieren — un-skipt `test_staff_routes.py` (4 P).
-3. **Auth-Dependency** für Staff-Rollen (Hausdienst, Sekretariat, Restaurant Treff) (1 P).
-4. **Auto-Reminder-Service** für fehlende Catering-/Setup-Angaben (z. B. APScheduler) (2 P).
-5. **Bilder / Preise / AGB** zum Room-Modell ergänzen (1 P).
-6. **Frontend-Tests** mit Jest/Vitest + React Testing Library aufsetzen (1 P).
-7. **Backend-CI**: Pytest-Job in `.github/workflows/` ergänzen (1 P).
-8. **Fazit-Sektion** in der Doku schreiben (1 P).
-9. **GitLab-Repo** spiegeln + `pascal.bammert` als Reporter einladen, Doku als PDF exportieren (1 P, **kritisch für Abgabe**).
-10. **Zusatzfunktionen** mit Lehrperson abstimmen und umsetzen (1 P).
-11. **Screencast** (max. 10 min) bis 24.06.2026 produzieren (2 P).
+1. **PDF-Export** der Doku (`PROJECT_DOCUMENTATION.md`) und ins Repo legen — **Abgabe 10.06.2026 (kritisch)**.
+2. **GitLab-Repo** spiegeln + `pascal.bammert` als Reporter einladen (kritisch für offizielle Abgabe) (1 P).
+3. **Screencast** (max. 10 min) aufnehmen + als MP4 exportieren — Abgabe 24.06.2026 (2 P).
+4. **Backend-CI**: Pytest-Job in `.github/workflows/` ergänzen (1 P).
+5. **Frontend-Tests** mit Vitest/Jest + React Testing Library aufsetzen (1 P).
+6. **Auto-Reminder** zum Vollpunkt bringen: APScheduler-Cron auf bestehenden Reminder-Service ODER Manuell-Lösung mit Lehrperson absegnen (0–1 P).
+7. **Zusatzfunktion** mit Lehrperson abstimmen und umsetzen (1 P).
+8. Optional: Staff-Volledit `PUT/PATCH /reservations/{id}`, Edit-Link auf der Bestätigungsseite anzeigen/kopieren, Filter nach Name/Raum.

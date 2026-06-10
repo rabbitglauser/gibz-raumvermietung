@@ -1,16 +1,11 @@
-"""Automatic reminders for reservations with incomplete details."""
-
-import logging
-import smtplib
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
+import smtplib
 
 from pydantic import BaseModel, Field
 
 from ..config import settings
-from ..dao.reservation_dao import ReservationDAO
-
-logger = logging.getLogger(__name__)
+from ..dao.reservation_dao import ReminderLogDAO, ReservationDAO
 
 
 class ReminderConfigurationError(Exception):
@@ -24,27 +19,10 @@ class ReminderRunResult(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
-def _reminder_window_days() -> int:
-    return getattr(
-        settings,
-        "reminder_days_before",
-        getattr(settings, "reminder_window_days", 7),
-    )
-
-
-def _public_frontend_url() -> str:
-    return getattr(
-        settings,
-        "public_frontend_url",
-        getattr(settings, "public_base_url", "http://localhost:3000"),
-    )
-
-
 def find_missing_details(doc: dict) -> list[str]:
     missing: list[str] = []
 
     catering = doc.get("catering")
-
     if not isinstance(catering, dict):
         missing.append("Verpflegung")
     elif catering.get("needed") is True:
@@ -53,29 +31,26 @@ def find_missing_details(doc: dict) -> list[str]:
             catering.get("during_event") or {},
             catering.get("after_event") or {},
         ]
-
         if not any(window.get("enabled") for window in windows):
             missing.append("Verpflegungszeiten")
 
     setup = doc.get("setup") or {}
-
     has_equipment = bool(setup.get("equipment"))
     has_services = bool(
         setup.get("microphone_needed")
         or setup.get("technical_support_hours")
         or setup.get("regie_hours")
     )
-
     if not has_equipment and not has_services:
         missing.append("Material und Technik")
 
     publication = doc.get("publication")
-
-    if isinstance(publication, dict):
-        if publication.get("publish_on_info_screen") and not publication.get(
-            "info_screen_text"
-        ):
-            missing.append("Info-Bildschirm-Text")
+    if not isinstance(publication, dict):
+        missing.append("Publikation")
+    elif publication.get("publish_on_info_screen") and not publication.get(
+        "info_screen_text"
+    ):
+        missing.append("Info-Bildschirm-Text")
 
     return missing
 
@@ -85,43 +60,33 @@ def _smtp_configured() -> bool:
 
 
 def _build_edit_link(doc: dict) -> str:
-    # Query-param form so the link works on the static (GitHub Pages) frontend,
-    # which has no dynamic /reservation/edit/[token] route.
-    base_url = _public_frontend_url().rstrip("/")
-    return f"{base_url}/reservation/edit/?token={doc['edit_token']}"
+    return f"{settings.public_frontend_url.rstrip('/')}/reservation/edit/{doc['edit_token']}"
 
 
 def _build_message(doc: dict, missing: list[str]) -> EmailMessage:
-    contact = doc.get("contact") or {}
-
-    if not contact.get("email"):
-        raise ValueError("Reservation is missing contact email")
-
     message = EmailMessage()
-    message["Subject"] = f"Bitte Angaben ergänzen: {doc.get('event_name', 'Reservation')}"
+    message["Subject"] = f"Reservation vervollstaendigen: {doc['event_name']}"
     message["From"] = settings.smtp_from_email or ""
-    message["To"] = contact["email"]
-
+    message["To"] = doc["contact"]["email"]
     message.set_content(
         "\n".join(
             [
-                f"Guten Tag {contact.get('name', '')}",
+                f"Guten Tag {doc['contact']['name']}",
                 "",
                 "Bei Ihrer Raumreservation fehlen noch Angaben:",
                 *[f"- {item}" for item in missing],
                 "",
-                f"Anlass: {doc.get('event_name', '-')}",
-                f"Datum: {doc.get('date', '-')}",
-                f"Raum: {doc.get('room', '-')}",
+                f"Anlass: {doc['event_name']}",
+                f"Datum: {doc['date']}",
+                f"Raum: {doc['room']}",
                 "",
-                f"Bitte ergänzen Sie die Angaben hier: {_build_edit_link(doc)}",
+                f"Bitte ergaenzen Sie die Angaben hier: {_build_edit_link(doc)}",
                 "",
-                "Freundliche Grüsse",
-                "GIBZ Raumvermietung",
+                "Freundliche Gruesse",
+                "GIBZ Raumreservation",
             ]
         )
     )
-
     return message
 
 
@@ -134,36 +99,36 @@ def _send_email(message: EmailMessage) -> None:
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
         if settings.smtp_use_tls:
             smtp.starttls()
-
         if settings.smtp_user and settings.smtp_password:
             smtp.login(settings.smtp_user, settings.smtp_password)
-
         smtp.send_message(message)
 
 
 class ReminderService:
-    def __init__(self, dao: ReservationDAO) -> None:
+    def __init__(
+        self,
+        dao: ReservationDAO,
+        log_dao: ReminderLogDAO | None = None,
+    ) -> None:
         self.dao = dao
+        self.log_dao = log_dao
 
-    async def due_reminders(self, today: date | None = None) -> list[dict]:
-        current_date = today or date.today()
-        until = current_date + timedelta(days=_reminder_window_days())
-
-        candidates = await self.dao.list_reminder_candidates(
-            current_date.isoformat(),
-            until.isoformat(),
+    async def _log(
+        self,
+        reservation_id: str,
+        status: str,
+        *,
+        missing_fields: list[str] | None = None,
+        error: str | None = None,
+    ) -> None:
+        if self.log_dao is None:
+            return
+        await self.log_dao.record(
+            reservation_id=reservation_id,
+            status=status,
+            missing_fields=missing_fields,
+            error=error,
         )
-
-        due: list[dict] = []
-
-        for doc in candidates:
-            if doc.get("reminder_sent") is True or doc.get("reminder_sent_at"):
-                continue
-
-            if find_missing_details(doc):
-                due.append(doc)
-
-        return due
 
     async def run(self, today: date | None = None) -> ReminderRunResult:
         if not _smtp_configured():
@@ -172,45 +137,51 @@ class ReminderService:
             )
 
         current_date = today or date.today()
-        until = current_date + timedelta(days=_reminder_window_days())
-
+        until = current_date + timedelta(days=settings.reminder_days_before)
         docs = await self.dao.list_reminder_candidates(
-            current_date.isoformat(),
-            until.isoformat(),
+            current_date.isoformat(), until.isoformat()
         )
-
         result = ReminderRunResult(checked=len(docs))
 
         for doc in docs:
-            if doc.get("reminder_sent") is True or doc.get("reminder_sent_at"):
+            reservation_id = str(doc.get("_id"))
+
+            if doc.get("reminder_sent_at"):
                 result.skipped += 1
+                await self._log(reservation_id, "skipped", error="already_sent")
                 continue
 
             missing = find_missing_details(doc)
-
             if not missing:
                 result.skipped += 1
+                await self._log(reservation_id, "skipped", error="complete")
                 continue
 
             if not doc.get("edit_token"):
                 result.skipped += 1
-                result.errors.append(f"{doc.get('_id')}: missing edit token")
+                result.errors.append(f"{reservation_id}: missing edit token")
+                await self._log(
+                    reservation_id,
+                    "error",
+                    missing_fields=missing,
+                    error="missing edit token",
+                )
                 continue
 
             try:
-                message = _build_message(doc, missing)
-                _send_email(message)
+                _send_email(_build_message(doc, missing))
             except Exception as exc:
-                result.errors.append(f"{doc.get('_id')}: {exc}")
+                result.errors.append(f"{reservation_id}: {exc}")
+                await self._log(
+                    reservation_id,
+                    "error",
+                    missing_fields=missing,
+                    error=str(exc),
+                )
                 continue
 
-            await self.dao.mark_reminder_sent(str(doc["_id"]))
+            await self.dao.mark_reminder_sent(reservation_id)
             result.sent += 1
-
-        if result.sent:
-            logger.info("Reminder job sent %d reminder(s)", result.sent)
-
-        if result.errors:
-            logger.warning("Reminder job finished with errors: %s", result.errors)
+            await self._log(reservation_id, "sent", missing_fields=missing)
 
         return result

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..dao.reservation_dao import ReservationDAO
+from ..dao.reservation_dao import ReminderLogDAO, ReservationDAO
 from ..db import get_database
 from ..services.reminder_service import (
     ReminderConfigurationError,
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/reminders", tags=["reminders"])
 
 
 def get_reminder_service(database=Depends(get_database)) -> ReminderService:
-    return ReminderService(ReservationDAO(database))
+    return ReminderService(ReservationDAO(database), ReminderLogDAO(database))
 
 
 @router.post("/run", response_model=ReminderRunResult)
