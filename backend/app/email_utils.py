@@ -21,7 +21,7 @@ def send_email(to: str, subject: str, body: str) -> bool:
         return False
 
     message = EmailMessage()
-    message["From"] = settings.smtp_from
+    message["From"] = settings.smtp_from_email
     message["To"] = to
     message["Subject"] = subject
     message.set_content(body)
