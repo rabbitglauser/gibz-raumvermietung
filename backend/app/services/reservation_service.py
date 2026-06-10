@@ -38,6 +38,41 @@ class ReservationValidationError(Exception):
     """Raised when a merged update no longer satisfies the model rules."""
 
 
+def _build_list_query(filters: Optional[dict]) -> dict:
+    """Translate the staff-list filter dict into a Mongo query.
+
+    Only non-empty filters become query clauses — passing the raw dict (which
+    carries ``None`` for every unset filter) straight to Mongo would match
+    nothing, because every stored document has a concrete ``status``/``date``.
+    Dates are zero-padded ISO strings, so range comparisons work lexically.
+    """
+    filters = filters or {}
+    query: dict = {}
+
+    date_clause: dict = {}
+    today = date.today().isoformat()
+    if filters.get("upcoming"):
+        date_clause["$gte"] = today
+    if filters.get("past"):
+        date_clause["$lt"] = today
+    if filters.get("date_from"):
+        date_clause["$gte"] = filters["date_from"]
+    if filters.get("date_to"):
+        date_clause["$lte"] = filters["date_to"]
+    if date_clause:
+        query["date"] = date_clause
+
+    has_catering = filters.get("has_catering")
+    if has_catering is not None:
+        query["catering.needed"] = has_catering
+
+    status_value = filters.get("status")
+    if status_value:
+        query["status"] = status_value
+
+    return query
+
+
 def _edit_deadline_days() -> int:
     return getattr(settings, "edit_deadline_days", 0)
 
@@ -107,24 +142,16 @@ class ReservationService:
         past: Optional[bool] = None,
     ) -> list[dict]:
         if filters is None:
-            filters = {}
+            filters = {
+                "date_from": from_date.isoformat() if from_date else None,
+                "date_to": to_date.isoformat() if to_date else None,
+                "has_catering": has_catering,
+                "upcoming": upcoming,
+                "past": past,
+            }
 
-            if from_date is not None:
-                filters["date_from"] = from_date.isoformat()
-
-            if to_date is not None:
-                filters["date_to"] = to_date.isoformat()
-
-            if has_catering is not None:
-                filters["has_catering"] = has_catering
-
-            if upcoming is not None:
-                filters["upcoming"] = upcoming
-
-            if past is not None:
-                filters["past"] = past
-
-        docs = await self.dao.list_all(filters)
+        query = _build_list_query(filters)
+        docs = await self.dao.list_all(query)
 
         return [reservation_to_response(doc) for doc in docs]
 

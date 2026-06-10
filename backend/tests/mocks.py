@@ -37,12 +37,19 @@ class MockReservationsCollection:
         self.insert_one = AsyncMock(side_effect=self._insert_one)
         self.find_one = AsyncMock(side_effect=self._find_one)
         self.update_one = AsyncMock(side_effect=self._update_one)
+        self.delete_one = AsyncMock(side_effect=self._delete_one)
 
     def _insert_one(self, doc: dict) -> SimpleNamespace:
         inserted_id = f"reservation-{self.next_id}"
         self.next_id += 1
         self.documents.append({**doc, "_id": inserted_id})
         return SimpleNamespace(inserted_id=inserted_id)
+
+    def _delete_one(self, query: dict) -> SimpleNamespace:
+        match = self._find_one(query)
+        if match is not None:
+            self.documents.remove(match)
+        return SimpleNamespace(deleted_count=1 if match else 0)
 
     def _find_one(self, query: dict) -> dict | None:
         if "_id" in query and len(query) == 1:

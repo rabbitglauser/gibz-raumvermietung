@@ -53,9 +53,35 @@ class ReservationDAO:
     async def get_by_edit_token(self, token: str) -> Optional[dict]:
         return await self.collection.find_one({"edit_token": token})
 
+    # Alias used by the customer edit / availability flows.
+    async def get_by_token(self, token: str) -> Optional[dict]:
+        return await self.collection.find_one({"edit_token": token})
+
     async def list_all(self, filters: Optional[dict] = None) -> list[dict]:
         items: list[dict] = []
         cursor = self.collection.find(filters or {}).sort("created_at", -1)
+        async for item in cursor:
+            items.append(item)
+        return items
+
+    async def list_active(self, room: Optional[str] = None) -> list[dict]:
+        """Reservations that still occupy a slot (everything except cancelled/rejected).
+
+        Backs the public availability endpoint, optionally scoped to one room.
+        """
+        query: dict = {
+            "status": {
+                "$nin": [
+                    ReservationStatus.cancelled.value,
+                    ReservationStatus.rejected.value,
+                ]
+            }
+        }
+        if room:
+            query["room"] = room
+
+        items: list[dict] = []
+        cursor = self.collection.find(query).sort("date", 1)
         async for item in cursor:
             items.append(item)
         return items
@@ -111,6 +137,23 @@ class ReservationDAO:
             },
         )
         return await self.get_by_id(reservation_id)
+
+    async def update_fields(
+        self, reservation_id: str, fields: dict
+    ) -> Optional[dict]:
+        """Apply a partial `$set` of already-serialized fields, bumping updated_at."""
+        if fields:
+            await self.collection.update_one(
+                {"_id": _id_filter(reservation_id)},
+                {"$set": {**fields, "updated_at": datetime.now(timezone.utc)}},
+            )
+        return await self.get_by_id(reservation_id)
+
+    async def delete(self, reservation_id: str) -> bool:
+        result = await self.collection.delete_one(
+            {"_id": _id_filter(reservation_id)}
+        )
+        return getattr(result, "deleted_count", 0) > 0
 
     async def list_reminder_candidates(self, from_date: str, to_date: str) -> list[dict]:
         items: list[dict] = []

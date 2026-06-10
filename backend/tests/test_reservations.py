@@ -15,8 +15,8 @@ fake_db_module.get_database = lambda: fake_db_module.db
 sys.modules.setdefault("app.db", fake_db_module)
 
 from app.db import get_database  # noqa: E402
+from app.routers.auth import require_staff  # noqa: E402
 from app.routers.reservations import router as reservations_router  # noqa: E402
-from app.security import get_current_user  # noqa: E402
 
 from .mocks import MockReservationsCollection  # noqa: E402
 
@@ -45,11 +45,9 @@ def staff_client(mock_collection):
     endpoints (list/get/patch). Auth itself is covered in test_staff_routes."""
     fake_db = SimpleNamespace(reservations=mock_collection)
     app.dependency_overrides[get_database] = lambda: fake_db
-    app.dependency_overrides[get_current_user] = lambda: {
-        "_id": "user-1",
-        "username": "tester",
-        "role": "admin",
-    }
+    app.dependency_overrides[require_staff] = lambda: SimpleNamespace(
+        username="tester", role="admin"
+    )
     try:
         yield TestClient(app)
     finally:
@@ -279,7 +277,7 @@ def test_list_reservations_returns_typed_items(staff_client):
     assert body["items"][0]["contact"]["email"]
 
 
-def test_list_reservations_filters_by_date_range(client):
+def test_list_reservations_filters_by_date_range(staff_client):
     early = valid_payload()
     early["date"] = "2026-06-10"
     early["event_name"] = "Early"
@@ -290,19 +288,19 @@ def test_list_reservations_filters_by_date_range(client):
     late["date"] = "2026-06-20"
     late["event_name"] = "Late"
 
-    assert client.post("/reservations", json=early).status_code == 201
-    assert client.post("/reservations", json=middle).status_code == 201
-    assert client.post("/reservations", json=late).status_code == 201
+    assert staff_client.post("/reservations", json=early).status_code == 201
+    assert staff_client.post("/reservations", json=middle).status_code == 201
+    assert staff_client.post("/reservations", json=late).status_code == 201
 
-    from_response = client.get(
+    from_response = staff_client.get(
         "/reservations",
         params={"from_date": "2026-06-12"},
     )
-    to_response = client.get(
+    to_response = staff_client.get(
         "/reservations",
         params={"to_date": "2026-06-18"},
     )
-    range_response = client.get(
+    range_response = staff_client.get(
         "/reservations",
         params={"from_date": "2026-06-12", "to_date": "2026-06-18"},
     )
@@ -323,7 +321,7 @@ def test_list_reservations_filters_by_date_range(client):
     ]
 
 
-def test_list_reservations_filters_by_catering_flag(client):
+def test_list_reservations_filters_by_catering_flag(staff_client):
     with_catering = valid_payload()
     with_catering["date"] = "2026-06-15"
     with_catering["event_name"] = "With Catering"
@@ -332,11 +330,11 @@ def test_list_reservations_filters_by_catering_flag(client):
     without_catering["event_name"] = "Without Catering"
     without_catering["catering"] = {"needed": False}
 
-    assert client.post("/reservations", json=with_catering).status_code == 201
-    assert client.post("/reservations", json=without_catering).status_code == 201
+    assert staff_client.post("/reservations", json=with_catering).status_code == 201
+    assert staff_client.post("/reservations", json=without_catering).status_code == 201
 
-    true_response = client.get("/reservations", params={"has_catering": "true"})
-    false_response = client.get("/reservations", params={"has_catering": "false"})
+    true_response = staff_client.get("/reservations", params={"has_catering": "true"})
+    false_response = staff_client.get("/reservations", params={"has_catering": "false"})
 
     assert true_response.status_code == 200
     assert [item["event_name"] for item in true_response.json()["items"]] == [
@@ -348,7 +346,7 @@ def test_list_reservations_filters_by_catering_flag(client):
     ]
 
 
-def test_list_reservations_filters_upcoming_and_past(client):
+def test_list_reservations_filters_upcoming_and_past(staff_client):
     past_payload = valid_payload()
     past_payload["date"] = "2000-01-01"
     past_payload["event_name"] = "Past"
@@ -356,11 +354,11 @@ def test_list_reservations_filters_upcoming_and_past(client):
     upcoming_payload["date"] = "2099-01-01"
     upcoming_payload["event_name"] = "Upcoming"
 
-    assert client.post("/reservations", json=past_payload).status_code == 201
-    assert client.post("/reservations", json=upcoming_payload).status_code == 201
+    assert staff_client.post("/reservations", json=past_payload).status_code == 201
+    assert staff_client.post("/reservations", json=upcoming_payload).status_code == 201
 
-    upcoming_response = client.get("/reservations", params={"upcoming": "true"})
-    past_response = client.get("/reservations", params={"past": "true"})
+    upcoming_response = staff_client.get("/reservations", params={"upcoming": "true"})
+    past_response = staff_client.get("/reservations", params={"past": "true"})
 
     assert upcoming_response.status_code == 200
     assert [item["event_name"] for item in upcoming_response.json()["items"]] == [
@@ -370,8 +368,8 @@ def test_list_reservations_filters_upcoming_and_past(client):
     assert [item["event_name"] for item in past_response.json()["items"]] == ["Past"]
 
 
-def test_list_reservations_rejects_conflicting_relative_filters(client):
-    response = client.get(
+def test_list_reservations_rejects_conflicting_relative_filters(staff_client):
+    response = staff_client.get(
         "/reservations",
         params={"upcoming": "true", "past": "true"},
     )

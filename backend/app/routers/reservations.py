@@ -22,7 +22,7 @@ from ..services.reservation_service import (
     ReservationService,
     ReservationValidationError,
 )
-from .auth import require_admin, require_staff
+from .auth import require_staff
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
@@ -55,8 +55,8 @@ async def create_reservation(
 async def list_reservations(
     service: ReservationService = Depends(get_reservation_service),
     _staff=Depends(require_staff),
-    date_from: Optional[str] = Query(default=None),
-    date_to: Optional[str] = Query(default=None),
+    from_date: Optional[str] = Query(default=None),
+    to_date: Optional[str] = Query(default=None),
     has_catering: Optional[bool] = Query(default=None),
     upcoming: Optional[bool] = Query(default=None),
     past: Optional[bool] = Query(default=None),
@@ -70,8 +70,8 @@ async def list_reservations(
         )
 
     filters = {
-        "date_from": date_from,
-        "date_to": date_to,
+        "date_from": from_date,
+        "date_to": to_date,
         "has_catering": has_catering,
         "upcoming": upcoming,
         "past": past,
@@ -206,16 +206,21 @@ async def update_reservation_status(
     return updated
 
 
-@router.delete("/{reservation_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_reservation(
+@router.delete("/{reservation_id}", response_model=ReservationOut)
+async def cancel_reservation(
     reservation_id: str,
     service: ReservationService = Depends(get_reservation_service),
-    _admin=Depends(require_admin),
+    _staff=Depends(require_staff),
 ):
-    deleted = await service.delete(reservation_id)
+    """Cancel a reservation (soft delete: sets status to ``cancelled``)."""
+    cancelled = await service.update_status(
+        reservation_id, ReservationStatus.cancelled
+    )
 
-    if not deleted:
+    if cancelled is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Reservation not found",
         )
+
+    return cancelled
