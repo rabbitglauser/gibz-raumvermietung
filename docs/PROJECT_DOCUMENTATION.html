@@ -1,0 +1,271 @@
+<!doctype html><html lang='de'><head><meta charset='utf-8'><style>
+@page { size: A4; margin: 18mm 16mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11pt; line-height: 1.5; color: #1a1a1a; margin: 0;
+}
+h1 { font-size: 20pt; color: #b1011f; margin: 0 0 4pt; }
+h2 { font-size: 15pt; color: #b1011f; border-bottom: 1.5pt solid #b1011f;
+     padding-bottom: 3pt; margin: 22pt 0 8pt; }
+h3 { font-size: 12.5pt; color: #333; margin: 14pt 0 4pt; }
+p, li { margin: 4pt 0; }
+ul, ol { margin: 4pt 0 8pt 18pt; }
+code { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt;
+       background: #f3f3f3; padding: 1pt 3pt; border-radius: 3px; }
+pre { background: #f6f8fa; border: 0.75pt solid #ddd; border-radius: 5px;
+      padding: 8pt 10pt; overflow-x: auto; page-break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 9pt; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt;
+        page-break-inside: avoid; }
+th, td { border: 0.75pt solid #ccc; padding: 5pt 7pt; text-align: left;
+         vertical-align: top; }
+th { background: #f3f3f3; }
+tr:nth-child(even) td { background: #fafafa; }
+
+.titlepage { height: 247mm; display: flex; flex-direction: column;
+             justify-content: center; page-break-after: always; }
+.titlepage .accent { width: 70pt; height: 5pt; background: #b1011f; margin-bottom: 18pt; }
+.titlepage h1 { font-size: 30pt; line-height: 1.15; }
+.titlepage .sub { font-size: 14pt; color: #444; margin-top: 6pt; }
+.titlepage .meta { margin-top: 40pt; font-size: 11pt; color: #333; }
+.titlepage .meta div { margin: 3pt 0; }
+
+.arch { border: 0.75pt solid #ddd; border-radius: 6px; padding: 14pt;
+        background: #fcfcfc; margin: 10pt 0; page-break-inside: avoid; }
+.arch-row { display: flex; align-items: center; justify-content: center; gap: 8pt;
+            flex-wrap: wrap; }
+.arch-down { margin-top: 14pt; gap: 24pt; }
+.node { border: 1pt solid #b1011f; border-radius: 6px; padding: 8pt 12pt;
+        text-align: center; font-weight: 600; background: #fff; min-width: 95pt; }
+.node span { display: block; font-weight: 400; font-size: 8.5pt; color: #666; margin-top: 2pt; }
+.node.side { border-color: #888; }
+.arrow { color: #b1011f; font-weight: 700; font-size: 13pt; text-align: center; }
+.arrow small { font-weight: 400; color: #666; font-size: 7.5pt; }
+.arch-caption { text-align: center; font-size: 9pt; color: #666; margin: 12pt 0 0; }
+</style></head><body>
+<section class="titlepage">
+  <div class="accent"></div>
+  <h1>Raumvermietung GIBZ<br>Projektdokumentation</h1>
+  <div class="sub">Digitale Raumreservation f&uuml;r Aula 1.005, Seminarraum 2.112
+  und Seminarraum 5.003/004</div>
+  <div class="meta">
+    <div><strong>Modul 165</strong> &ndash; NoSQL-Datenbanken einsetzen</div>
+    <div>Frühlingssemester 2026</div>
+    <div>Repository: https://github.com/rabbitglauser/gibz-raumvermietung</div>
+    <div>Stand: 10.06.2026</div>
+  </div>
+</section>
+<h2>3.1 Zusätzliche Funktionen</h2>
+<p>Die Anwendung ersetzt den bisherigen PDF-basierten Raumreservationsprozess durch
+eine dockerisierte Webanwendung für drei GIBZ-Räume: Aula 1.005,
+Seminarraum 2.112 und Seminarraum 5.003/004.</p>
+<p>Umgesetzt:</p>
+<ul>
+<li>Öffentliches Raumverzeichnis und Raumdetailseiten mit realen GIBZ-Raumdaten.</li>
+<li>Buchungsdialog mit Datum-/Zeitauswahl, Kontakt- und Rechnungsdaten,
+  Raumregeln, Catering, Einrichtung, Publikationsoptionen und AGB-Akzeptanz.</li>
+<li>Reservations-API mit Konflikterkennung, Unterstützung direkt anschliessender
+  Buchungen, Validierung von Raumkapazität und Ausstattung, Bearbeitungstokens
+  und Bearbeitungsfristen.</li>
+<li>Kundenseitige Bearbeitungsseite unter <code>/reservation/edit/[token]</code>.</li>
+<li>Mitarbeitenden-Login mit gehashten Passwörtern und HTTP-only-JWT-Cookie-
+  Sessions.</li>
+<li>Mitarbeitenden-Dashboard unter <code>/staff</code> mit Filtern, Statusänderungen,
+  Stornierung und manuellem Versand von Erinnerungen.</li>
+<li>SMTP-gestützter Erinnerungsdienst für unvollständige bevorstehende
+  Reservationen.</li>
+<li>MongoDB-Persistenz mit Collections für Räume, Reservationen und Benutzer.</li>
+<li>Backup- und Restore-Skripte mit dokumentiertem Support-Runbook.</li>
+<li>Automatisierte pytest-Suite für das zentrale Backend-Verhalten.</li>
+</ul>
+<p>Bewusst nicht umgesetzt:</p>
+<ul>
+<li>Externe Kalendersynchronisation.</li>
+<li>Zahlungsabwicklung.</li>
+<li>Produktives SSO.</li>
+<li>Automatisch geplante Erinnerungsjobs. Erinnerungen werden von Mitarbeitenden
+  manuell ausgelöst, damit sie zuverlässig demonstriert und getestet werden
+  können.</li>
+</ul>
+<h2>3.2 Architekturvisualisierung</h2>
+<p>Die Anwendung ist ein Docker-Compose-System mit drei Diensten:</p>
+
+<div class="arch">
+  <div class="arch-row">
+    <div class="node">Browser<br><span>Kunde &amp; Mitarbeitende</span></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node">Next.js Frontend<br><span>Port 3000</span></div>
+    <div class="arrow">&rarr;<br><small>REST-API</small></div>
+    <div class="node">FastAPI Backend<br><span>Port 8000</span></div>
+  </div>
+  <div class="arch-row arch-down">
+    <div class="node side">MongoDB 8<br><span>Port 27017 &middot; Volume mongodb_data</span></div>
+    <div class="node side">SMTP-Server<br><span>Erinnerungs-E-Mails</span></div>
+  </div>
+  <p class="arch-caption">Backend &rarr; MongoDB (AsyncMongoClient) sowie Backend &rarr; SMTP (Erinnerungen).</p>
+</div>
+
+<p>Hauptabläufe:</p>
+<ol>
+<li>Kunden durchsuchen die Räume und erfassen Reservationen über das Frontend.</li>
+<li>Das Backend validiert die Geschäftsregeln und speichert Reservationen in
+   MongoDB.</li>
+<li>Kunden verwenden Bearbeitungstoken-Links, um Details bis zur
+   Bearbeitungsfrist anzupassen.</li>
+<li>Mitarbeitende melden sich über <code>/auth/login</code> an; das Backend setzt ein
+   HTTP-only-Cookie.</li>
+<li>Mitarbeitende verwalten Reservationen und lösen Erinnerungen manuell über
+   <code>/staff</code> aus.</li>
+</ol>
+<h2>3.3 Technologie-Stack</h2>
+<table>
+<thead>
+<tr>
+<th>Bereich</th>
+<th>Technologie</th>
+<th>Einsatz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend</td>
+<td>Next.js 16, React 19, TypeScript</td>
+<td>Web-UI und Mitarbeitenden-Dashboard</td>
+</tr>
+<tr>
+<td>Styling</td>
+<td>Tailwind CSS 4</td>
+<td>Responsives Layout im GIBZ-Stil</td>
+</tr>
+<tr>
+<td>Backend</td>
+<td>FastAPI, Pydantic 2</td>
+<td>REST-API, Validierung, OpenAPI-Dokumentation</td>
+</tr>
+<tr>
+<td>Datenbank</td>
+<td>MongoDB 8 mit PyMongo async</td>
+<td>Raum-, Reservations- und Mitarbeitenden-Dokumente</td>
+</tr>
+<tr>
+<td>Authentifizierung</td>
+<td>bcrypt, PyJWT, HTTP-only-Cookies</td>
+<td>Mitarbeitenden-Login und Session-Verwaltung</td>
+</tr>
+<tr>
+<td>E-Mail</td>
+<td>Python <code>smtplib</code></td>
+<td>Versand von SMTP-Erinnerungen</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>Docker Compose</td>
+<td>Lokaler/Demo-Start des Full Stacks</td>
+</tr>
+<tr>
+<td>Tests</td>
+<td>pytest</td>
+<td>Backend-Tests für Routen, Services und DAOs</td>
+</tr>
+</tbody>
+</table>
+<p>MongoDB passt gut zum Projekt, weil Reservationen dokumentenartig aufgebaut
+sind: Kontakt, Rechnungsdaten, Catering, Einrichtung, Publikation,
+Erinnerungsstatus und Bearbeitungstoken gehören sinnvoll in ein gemeinsames
+Reservationsdokument.</p>
+<h2>3.4 Tests</h2>
+<p>Aktuelles Backend-Resultat:</p>
+<pre><code class="language-text">pytest -q
+65 passed, 1 warning
+</code></pre>
+<p>Die automatisierte Backend-Abdeckung umfasst:</p>
+<ul>
+<li>Health- und Root-Endpunkte.</li>
+<li>Endpunkte des Raumverzeichnisses.</li>
+<li>Erstellung, Auflistung, Filterung, Validierung und Konflikterkennung von
+  Reservationen.</li>
+<li>Kundenseitige Bearbeitungstoken-Suche/-Aktualisierung und Ablehnung nach
+  Ablauf der Bearbeitungsfrist.</li>
+<li>Mitarbeitenden-Routen für Login, Logout und <code>/me</code>.</li>
+<li>Nur für Mitarbeitende zugängliche Routen für Statusänderungen und
+  Stornierungen.</li>
+<li>Erinnerungsberechtigung, SMTP-Konfigurationsfehler und erfolgreich gemockter
+  Versand.</li>
+<li>DAO-/Service-Verhalten mit Mongo-ähnlichen In-Memory-Fakes.</li>
+</ul>
+<p>Vor der finalen Abgabe sind noch folgende manuelle Prüfungen erforderlich:</p>
+<ul>
+<li><code>docker compose up --build</code> startet MongoDB, Backend und Frontend.</li>
+<li>Der öffentliche Buchungsablauf funktioniert im Browser.</li>
+<li>Der Login unter <code>/staff</code> funktioniert mit dem Demo-Mitarbeitendenkonto aus
+  <code>.env</code>.</li>
+<li>Filter, Statusaktionen und Stornierung im Mitarbeitendenbereich funktionieren.</li>
+<li>Der Erinnerungsbutton gibt bei fehlender SMTP-Konfiguration eine klare
+  Fehlermeldung zurück oder versendet über einen konfigurierten
+  SMTP-Testserver.</li>
+<li>Backup- und Restore-Skripte laufen erfolgreich gegen eine
+  Entwicklungsdatenbank.</li>
+</ul>
+<h2>3.5 Installationsanleitung</h2>
+<h3>Voraussetzungen</h3>
+<ul>
+<li>Docker v24 oder neuer.</li>
+<li>Docker Compose v2 oder neuer.</li>
+<li>Git.</li>
+</ul>
+<p>Für lokale Entwicklung ohne Docker:</p>
+<ul>
+<li>Python 3.12 oder neuer.</li>
+<li>Node.js 20 oder neuer.</li>
+<li>MongoDB 8 oder ein erreichbarer MongoDB-Connection-String.</li>
+</ul>
+<h3>Backend konfigurieren</h3>
+<p><code>backend/.env</code> aus der Beispieldatei erstellen:</p>
+<pre><code class="language-powershell">Copy-Item backend\.env.example backend\.env
+</code></pre>
+<p>Für lokale Docker-Demos aktiviert die Beispieldatei einen
+Demo-Mitarbeitendenbenutzer:</p>
+<pre><code class="language-text">SEED_STAFF_USERNAME=secretariat
+SEED_STAFF_PASSWORD=ChangeMe123!
+</code></pre>
+<p><code>AUTH_SECRET_KEY</code> und Mitarbeitenden-Zugangsdaten müssen vor jeder Nutzung
+ausserhalb einer Demo angepasst werden.</p>
+<h3>Start mit Docker Compose</h3>
+<p>Aus dem Repository-Root:</p>
+<pre><code class="language-bash">docker compose up --build
+</code></pre>
+<p>Nach dem Start:</p>
+<ul>
+<li>Frontend: <code>http://localhost:3000</code></li>
+<li>Mitarbeitenden-Dashboard: <code>http://localhost:3000/staff</code></li>
+<li>Backend API: <code>http://localhost:8000</code></li>
+<li>Swagger UI: <code>http://localhost:8000/docs</code></li>
+<li>Health-Check: <code>http://localhost:8000/health</code></li>
+<li>MongoDB: <code>localhost:27017</code></li>
+</ul>
+<p>Stoppen:</p>
+<pre><code class="language-bash">docker compose down
+</code></pre>
+<p>Lokale MongoDB-Daten löschen:</p>
+<pre><code class="language-bash">docker compose down -v
+</code></pre>
+<h3>Backup und Restore</h3>
+<p>Das vollständige Support-Runbook befindet sich in <code>docs/BACKUP_RESTORE.md</code>.</p>
+<p>Backup erstellen:</p>
+<pre><code class="language-powershell">.\scripts\backup-mongodb.ps1
+</code></pre>
+<p>Backup wiederherstellen:</p>
+<pre><code class="language-powershell">.\scripts\restore-mongodb.ps1 -ArchivePath .\backups\room_rental-YYYYMMDD-HHMMSS.archive.gz -ConfirmDataLoss
+</code></pre>
+<h2>3.6 Fazit</h2>
+<p>Das Projekt demonstriert nun den vollständigen Kernprozess: Kunden können Räume
+reservieren, Konflikte werden verhindert, Kunden können ihre Reservationen über
+sichere Links bearbeiten, und Mitarbeitende können Reservationen über ein
+geschütztes Dashboard verwalten. Das MongoDB-Dokumentmodell wird für realistische
+verschachtelte Reservationsdaten genutzt, und Docker Compose ermöglicht einen
+einfachen Systemstart für die Bewertung.</p>
+<p>Die verbleibenden Einschränkungen sind für ein Schulprojekt akzeptabel:
+Erinnerungen werden manuell statt geplant ausgelöst, SMTP hängt von externer
+Konfiguration ab, und es gibt keine Integration mit GIBZ-SSO oder externen
+Kalendern.</p></body></html>

@@ -1,192 +1,212 @@
-# M165 Project Documentation: GIBZ Room Rental
+# M165 Projektdokumentation: GIBZ Raumvermietung
 
-## 3.1 Additional Functions
+## 3.1 Zusätzliche Funktionen
 
-The application replaces the PDF-based room reservation process with a
-Dockerized web application for three GIBZ rooms: Aula 1.005, Seminarraum 2.112,
-and Seminarraum 5.003/004.
+Die Anwendung ersetzt den bisherigen PDF-basierten Raumreservationsprozess durch
+eine dockerisierte Webanwendung für drei GIBZ-Räume: Aula 1.005,
+Seminarraum 2.112 und Seminarraum 5.003/004.
 
-Implemented:
+Umgesetzt:
 
-- Public room catalogue and room detail pages with real GIBZ room data.
-- Booking dialog with date/time selection, contact and billing details, room
-  rules, catering, setup, publication options, and AGB acceptance.
-- Reservation API with conflict detection, adjacent-booking support, room
-  capacity/equipment validation, edit tokens, and edit deadlines.
-- Customer edit page at `/reservation/edit/[token]`.
-- Staff login with hashed passwords and HTTP-only JWT cookie sessions.
-- Staff dashboard at `/staff` with filters, status updates, cancellation, and
-  manual reminder sending.
-- SMTP-backed reminder service for incomplete upcoming reservations.
-- MongoDB persistence with collections for rooms, reservations, and users.
-- Backup and restore scripts with a documented support runbook.
-- Automated pytest suite covering the backend core behavior.
+- Öffentliches Raumverzeichnis und Raumdetailseiten mit realen GIBZ-Raumdaten.
+- Buchungsdialog mit Datum-/Zeitauswahl, Kontakt- und Rechnungsdaten,
+  Raumregeln, Catering, Einrichtung, Publikationsoptionen und AGB-Akzeptanz.
+- Reservations-API mit Konflikterkennung, Unterstützung direkt anschliessender
+  Buchungen, Validierung von Raumkapazität und Ausstattung, Bearbeitungstokens
+  und Bearbeitungsfristen.
+- Kundenseitige Bearbeitungsseite unter `/reservation/edit/[token]`.
+- Mitarbeitenden-Login mit gehashten Passwörtern und HTTP-only-JWT-Cookie-
+  Sessions.
+- Mitarbeitenden-Dashboard unter `/staff` mit Filtern, Statusänderungen,
+  Stornierung und manuellem Versand von Erinnerungen.
+- SMTP-gestützter Erinnerungsdienst für unvollständige bevorstehende
+  Reservationen.
+- MongoDB-Persistenz mit Collections für Räume, Reservationen und Benutzer.
+- Backup- und Restore-Skripte mit dokumentiertem Support-Runbook.
+- Automatisierte pytest-Suite für das zentrale Backend-Verhalten.
 
-Not implemented by design:
+Bewusst nicht umgesetzt:
 
-- External calendar synchronization.
-- Payment handling.
-- Production SSO.
-- Automated scheduled reminder jobs. Reminders are triggered manually by staff
-  so they can be demonstrated and tested reliably.
+- Externe Kalendersynchronisation.
+- Zahlungsabwicklung.
+- Produktives SSO.
+- Automatisch geplante Erinnerungsjobs. Erinnerungen werden von Mitarbeitenden
+  manuell ausgelöst, damit sie zuverlässig demonstriert und getestet werden
+  können.
 
-## 3.2 Architecture Visualization
+## 3.2 Architekturvisualisierung
 
-The application is a three-service Docker Compose system:
+Die Anwendung ist ein Docker-Compose-System mit drei Diensten:
 
 ```mermaid
 graph TB
     Browser["Browser"]
-    Frontend["Next.js frontend<br/>Port 3000"]
-    Backend["FastAPI backend<br/>Port 8000"]
+    Frontend["Next.js Frontend<br/>Port 3000"]
+    Backend["FastAPI Backend<br/>Port 8000"]
     MongoDB["MongoDB 8<br/>Port 27017<br/>Volume: mongodb_data"]
-    SMTP["SMTP server"]
+    SMTP["SMTP-Server"]
 
     Browser --> Frontend
-    Frontend -->|"REST API"| Backend
+    Frontend -->|"REST-API"| Backend
     Backend -->|"AsyncMongoClient"| MongoDB
-    Backend -->|"SMTP reminders"| SMTP
+    Backend -->|"SMTP-Erinnerungen"| SMTP
 ```
 
-Main flows:
+Hauptabläufe:
 
-1. Customers browse rooms and submit reservations through the frontend.
-2. The backend validates business rules and stores reservations in MongoDB.
-3. Customers use edit-token links to update details until the edit deadline.
-4. Staff log in through `/auth/login`; the backend sets an HTTP-only cookie.
-5. Staff manage reservations and manually trigger reminders from `/staff`.
+1. Kunden durchsuchen die Räume und erfassen Reservationen über das Frontend.
+2. Das Backend validiert die Geschäftsregeln und speichert Reservationen in
+   MongoDB.
+3. Kunden verwenden Bearbeitungstoken-Links, um Details bis zur
+   Bearbeitungsfrist anzupassen.
+4. Mitarbeitende melden sich über `/auth/login` an; das Backend setzt ein
+   HTTP-only-Cookie.
+5. Mitarbeitende verwalten Reservationen und lösen Erinnerungen manuell über
+   `/staff` aus.
 
-## 3.3 Technology Stack
+## 3.3 Technologie-Stack
 
-| Area | Technology | Use |
+| Bereich | Technologie | Einsatz |
 |---|---|---|
-| Frontend | Next.js 16, React 19, TypeScript | Web UI and staff dashboard |
-| Styling | Tailwind CSS 4 | GIBZ-themed responsive layout |
-| Backend | FastAPI, Pydantic 2 | REST API, validation, OpenAPI docs |
-| Database | MongoDB 8 with PyMongo async | Room, reservation, and staff documents |
-| Auth | bcrypt, PyJWT, HTTP-only cookies | Staff login/session handling |
-| Email | Python `smtplib` | SMTP reminder delivery |
-| Deployment | Docker Compose | Local/demo full-stack startup |
-| Tests | pytest | Backend route/service/DAO tests |
+| Frontend | Next.js 16, React 19, TypeScript | Web-UI und Mitarbeitenden-Dashboard |
+| Styling | Tailwind CSS 4 | Responsives Layout im GIBZ-Stil |
+| Backend | FastAPI, Pydantic 2 | REST-API, Validierung, OpenAPI-Dokumentation |
+| Datenbank | MongoDB 8 mit PyMongo async | Raum-, Reservations- und Mitarbeitenden-Dokumente |
+| Authentifizierung | bcrypt, PyJWT, HTTP-only-Cookies | Mitarbeitenden-Login und Session-Verwaltung |
+| E-Mail | Python `smtplib` | Versand von SMTP-Erinnerungen |
+| Deployment | Docker Compose | Lokaler/Demo-Start des Full Stacks |
+| Tests | pytest | Backend-Tests für Routen, Services und DAOs |
 
-MongoDB fits the project because reservations are document-shaped: contact,
-billing, catering, setup, publication, reminder state, and edit-token fields
-belong naturally in one reservation document.
+MongoDB passt gut zum Projekt, weil Reservationen dokumentenartig aufgebaut
+sind: Kontakt, Rechnungsdaten, Catering, Einrichtung, Publikation,
+Erinnerungsstatus und Bearbeitungstoken gehören sinnvoll in ein gemeinsames
+Reservationsdokument.
 
-## 3.4 Testing
+## 3.4 Tests
 
-Latest backend result:
+Aktuelles Backend-Resultat:
 
 ```text
 pytest -q
 65 passed, 1 warning
 ```
 
-Automated backend coverage includes:
+Die automatisierte Backend-Abdeckung umfasst:
 
-- Health/root endpoints.
-- Room catalogue endpoints.
-- Reservation creation, listing, filters, validation, and conflict detection.
-- Customer edit token lookup/update and edit-deadline rejection.
-- Staff login/logout/me routes.
-- Staff-only status update and cancellation routes.
-- Reminder eligibility, SMTP configuration errors, and successful mocked send.
-- DAO/service behavior with in-memory Mongo-style fakes.
+- Health- und Root-Endpunkte.
+- Endpunkte des Raumverzeichnisses.
+- Erstellung, Auflistung, Filterung, Validierung und Konflikterkennung von
+  Reservationen.
+- Kundenseitige Bearbeitungstoken-Suche/-Aktualisierung und Ablehnung nach
+  Ablauf der Bearbeitungsfrist.
+- Mitarbeitenden-Routen für Login, Logout und `/me`.
+- Nur für Mitarbeitende zugängliche Routen für Statusänderungen und
+  Stornierungen.
+- Erinnerungsberechtigung, SMTP-Konfigurationsfehler und erfolgreich gemockter
+  Versand.
+- DAO-/Service-Verhalten mit Mongo-ähnlichen In-Memory-Fakes.
 
-Manual checks still required before final submission:
+Vor der finalen Abgabe sind noch folgende manuelle Prüfungen erforderlich:
 
-- `docker compose up --build` starts MongoDB, backend, and frontend.
-- Public booking flow works in the browser.
-- `/staff` login works with the demo staff account from `.env`.
-- Staff filters/status actions/cancellation work.
-- Reminder button returns a clear SMTP configuration error when SMTP is not set,
-  or sends via a configured SMTP test server.
-- Backup and restore scripts run successfully on a development database.
+- `docker compose up --build` startet MongoDB, Backend und Frontend.
+- Der öffentliche Buchungsablauf funktioniert im Browser.
+- Der Login unter `/staff` funktioniert mit dem Demo-Mitarbeitendenkonto aus
+  `.env`.
+- Filter, Statusaktionen und Stornierung im Mitarbeitendenbereich funktionieren.
+- Der Erinnerungsbutton gibt bei fehlender SMTP-Konfiguration eine klare
+  Fehlermeldung zurück oder versendet über einen konfigurierten
+  SMTP-Testserver.
+- Backup- und Restore-Skripte laufen erfolgreich gegen eine
+  Entwicklungsdatenbank.
 
-## 3.5 Installation Guide
+## 3.5 Installationsanleitung
 
-### Prerequisites
+### Voraussetzungen
 
-- Docker v24 or newer.
-- Docker Compose v2 or newer.
+- Docker v24 oder neuer.
+- Docker Compose v2 oder neuer.
 - Git.
 
-For local development without Docker:
+Für lokale Entwicklung ohne Docker:
 
-- Python 3.12 or newer.
-- Node.js 20 or newer.
-- MongoDB 8 or a reachable MongoDB connection string.
+- Python 3.12 oder neuer.
+- Node.js 20 oder neuer.
+- MongoDB 8 oder ein erreichbarer MongoDB-Connection-String.
 
-### Configure Backend
+### Backend konfigurieren
 
-Create `backend/.env` from the example:
+`backend/.env` aus der Beispieldatei erstellen:
 
 ```powershell
 Copy-Item backend\.env.example backend\.env
 ```
 
-For local Docker demos, the example enables a demo staff user:
+Für lokale Docker-Demos aktiviert die Beispieldatei einen
+Demo-Mitarbeitendenbenutzer:
 
 ```text
 SEED_STAFF_USERNAME=secretariat
 SEED_STAFF_PASSWORD=ChangeMe123!
 ```
 
-Change `AUTH_SECRET_KEY` and staff credentials before any non-demo use.
+`AUTH_SECRET_KEY` und Mitarbeitenden-Zugangsdaten müssen vor jeder Nutzung
+ausserhalb einer Demo angepasst werden.
 
-### Start with Docker Compose
+### Start mit Docker Compose
 
-From the repository root:
+Aus dem Repository-Root:
 
 ```bash
 docker compose up --build
 ```
 
-After startup:
+Nach dem Start:
 
 - Frontend: `http://localhost:3000`
-- Staff dashboard: `http://localhost:3000/staff`
+- Mitarbeitenden-Dashboard: `http://localhost:3000/staff`
 - Backend API: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
+- Health-Check: `http://localhost:8000/health`
 - MongoDB: `localhost:27017`
 
-To stop:
+Stoppen:
 
 ```bash
 docker compose down
 ```
 
-To delete local MongoDB data:
+Lokale MongoDB-Daten löschen:
 
 ```bash
 docker compose down -v
 ```
 
-### Backup and Restore
+### Backup und Restore
 
-The complete support runbook is in `docs/BACKUP_RESTORE.md`.
+Das vollständige Support-Runbook befindet sich in `docs/BACKUP_RESTORE.md`.
 
-Create a backup:
+Backup erstellen:
 
 ```powershell
 .\scripts\backup-mongodb.ps1
 ```
 
-Restore a backup:
+Backup wiederherstellen:
 
 ```powershell
 .\scripts\restore-mongodb.ps1 -ArchivePath .\backups\room_rental-YYYYMMDD-HHMMSS.archive.gz -ConfirmDataLoss
 ```
 
-## 3.6 Conclusion
+## 3.6 Fazit
 
-The project now demonstrates the complete core workflow: customers can reserve
-rooms, conflicts are blocked, customers can edit through secure links, and staff
-can manage reservations through a protected dashboard. The MongoDB document
-model is used for realistic nested reservation data, and Docker Compose makes
-the system easy to start for evaluation.
+Das Projekt demonstriert nun den vollständigen Kernprozess: Kunden können Räume
+reservieren, Konflikte werden verhindert, Kunden können ihre Reservationen über
+sichere Links bearbeiten, und Mitarbeitende können Reservationen über ein
+geschütztes Dashboard verwalten. Das MongoDB-Dokumentmodell wird für realistische
+verschachtelte Reservationsdaten genutzt, und Docker Compose ermöglicht einen
+einfachen Systemstart für die Bewertung.
 
-The remaining limitations are acceptable for a school project: reminders are
-manual rather than scheduled, SMTP depends on external configuration, and there
-is no integration with GIBZ SSO or external calendars.
+Die verbleibenden Einschränkungen sind für ein Schulprojekt akzeptabel:
+Erinnerungen werden manuell statt geplant ausgelöst, SMTP hängt von externer
+Konfiguration ab, und es gibt keine Integration mit GIBZ-SSO oder externen
+Kalendern.
