@@ -41,16 +41,39 @@ def client(users_collection):
         app.dependency_overrides.clear()
 
 
-def test_login_sets_http_only_staff_cookie(client):
+def test_login_returns_token_and_sets_http_only_staff_cookie(client):
     response = client.post(
         "/auth/login",
         json={"username": "secretariat", "password": "correct-password"},
     )
 
     assert response.status_code == 200
-    assert response.json()["username"] == "secretariat"
+    body = response.json()
+    # The token is returned in the body so a static frontend on a different
+    # origin can authenticate via an Authorization header instead of relying on
+    # the (third-party-blocked) session cookie.
+    assert body["token"]
+    assert body["user"]["username"] == "secretariat"
     assert settings.auth_cookie_name in response.cookies
     assert "httponly" in response.headers["set-cookie"].lower()
+
+
+def test_login_token_authorizes_via_bearer_header(client):
+    login = client.post(
+        "/auth/login",
+        json={"username": "secretariat", "password": "correct-password"},
+    )
+    assert login.status_code == 200
+    token = login.json()["token"]
+
+    response = client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["username"] == "secretariat"
+    assert body["role"] == "staff"
 
 
 def test_login_rejects_invalid_password(client):

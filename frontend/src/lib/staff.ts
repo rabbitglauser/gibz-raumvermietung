@@ -41,6 +41,29 @@ function apiUrl(path: string): string | null {
   return `${API_BASE_URL}${path}`;
 }
 
+// Staff auth travels in an Authorization header rather than a cookie: the static
+// frontend (github.io) and the API (onrender.com) live on different sites, so the
+// session cookie is a third-party cookie that browsers block by default. The token
+// is kept in localStorage and attached to every authenticated request instead.
+const TOKEN_KEY = "rr_staff_token";
+
+function getToken(): string | null {
+  return typeof window === "undefined" ? null : localStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(token: string): void {
+  if (typeof window !== "undefined") localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearToken(): void {
+  if (typeof window !== "undefined") localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function loginStaff(
   username: string,
   password: string,
@@ -57,19 +80,31 @@ export async function loginStaff(
   if (!res.ok) {
     return { ok: false, status: res.status, message: await parseError(res) };
   }
-  return { ok: true, data: (await res.json()) as StaffUser };
+  const body = (await res.json()) as { token: string; user: StaffUser };
+  setToken(body.token);
+  return { ok: true, data: body.user };
 }
 
 export async function logoutStaff(): Promise<void> {
   const url = apiUrl("/auth/logout");
-  if (!url) return;
-  await fetch(url, { method: "POST", credentials: "include" });
+  if (url) {
+    await fetch(url, {
+      method: "POST",
+      headers: { ...authHeaders() },
+      credentials: "include",
+    });
+  }
+  clearToken();
 }
 
 export async function getCurrentStaff(): Promise<StaffUser | null> {
   const url = apiUrl("/auth/me");
   if (!url) return null;
-  const res = await fetch(url, { credentials: "include", cache: "no-store" });
+  const res = await fetch(url, {
+    headers: { ...authHeaders() },
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!res.ok) return null;
   return (await res.json()) as StaffUser;
 }
@@ -88,7 +123,11 @@ export async function listStaffReservations(
   const url = apiUrl(path);
   if (!url) return { ok: false, status: 0, message: "API nicht konfiguriert" };
 
-  const res = await fetch(url, { credentials: "include", cache: "no-store" });
+  const res = await fetch(url, {
+    headers: { ...authHeaders() },
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!res.ok) {
     return { ok: false, status: res.status, message: await parseError(res) };
   }
@@ -105,7 +144,7 @@ export async function updateReservationStatus(
 
   const res = await fetch(url, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     credentials: "include",
     body: JSON.stringify({ status }),
   });
@@ -123,6 +162,7 @@ export async function cancelReservation(
 
   const res = await fetch(url, {
     method: "DELETE",
+    headers: { ...authHeaders() },
     credentials: "include",
   });
   if (!res.ok) {
@@ -137,6 +177,7 @@ export async function runReminders(): Promise<ApiResult<ReminderRunResult>> {
 
   const res = await fetch(url, {
     method: "POST",
+    headers: { ...authHeaders() },
     credentials: "include",
   });
   if (!res.ok) {

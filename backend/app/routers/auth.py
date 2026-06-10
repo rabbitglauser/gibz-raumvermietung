@@ -24,6 +24,11 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class LoginResponse(BaseModel):
+    token: str
+    user: UserPublic
+
+
 class StaffUserCreateRequest(BaseModel):
     username: str = Field(min_length=1)
     password: str = Field(min_length=8)
@@ -56,8 +61,15 @@ def clear_auth_cookie(response: Response) -> None:
     )
 
 
+def _bearer_or_cookie_token(request: Request) -> str | None:
+    header = request.headers.get("Authorization")
+    if header and header.lower().startswith("bearer "):
+        return header[7:].strip()
+    return request.cookies.get(settings.auth_cookie_name)
+
+
 def require_staff(request: Request) -> StaffPrincipal:
-    token = request.cookies.get(settings.auth_cookie_name)
+    token = _bearer_or_cookie_token(request)
 
     if not token:
         raise HTTPException(
@@ -89,7 +101,7 @@ def require_admin(principal: StaffPrincipal = Depends(require_staff)) -> StaffPr
     return principal
 
 
-@router.post("/login", response_model=UserPublic)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     payload: LoginRequest,
     response: Response,
@@ -106,7 +118,7 @@ async def login(
     token = create_auth_token(user["username"], user["role"])
     set_auth_cookie(response, token)
 
-    return user_to_public(user)
+    return LoginResponse(token=token, user=user_to_public(user))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
